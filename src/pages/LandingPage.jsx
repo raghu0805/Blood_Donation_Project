@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { HeartPulse, ShieldCheck, MapPin, Activity, Clock } from 'lucide-react';
 import DemoModal from '../components/DemoModal';

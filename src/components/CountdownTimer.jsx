@@ -60,34 +60,34 @@ export default function CountdownTimer({ targetDate, className, variant = 'defau
 
     const currentSize = sizeClasses[size] || sizeClasses.md;
 
-    const TimeUnit = ({ value, label }) => (
-        <div className="flex flex-col items-center">
-            <div className={cn(
-                "backdrop-blur-sm rounded-lg text-center border shadow-sm transition-all",
-                currentStyle.box,
-                currentSize.box
-            )}>
-                <span className={cn("font-bold block leading-none", currentSize.num)}>
-                    {String(value).padStart(2, '0')}
-                </span>
-                <span className={cn("uppercase font-bold mt-0.5 block", currentStyle.label, currentSize.label)}>
-                    {label}
-                </span>
-            </div>
-        </div>
-    );
-
     return (
         <div className={cn("flex items-center gap-2", className)}>
             <div className="flex gap-2">
-                <TimeUnit value={timeLeft.days} label="Days" />
+                <TimeUnit value={timeLeft.days} label="Days" currentStyle={currentStyle} currentSize={currentSize} />
                 <span className={cn("font-bold self-start mt-2", currentStyle.separator, size === 'lg' ? 'mt-4 text-2xl' : '')}>:</span>
-                <TimeUnit value={timeLeft.hours} label="Hrs" />
+                <TimeUnit value={timeLeft.hours} label="Hrs" currentStyle={currentStyle} currentSize={currentSize} />
                 <span className={cn("font-bold self-start mt-2", currentStyle.separator, size === 'lg' ? 'mt-4 text-2xl' : '')}>:</span>
-                <TimeUnit value={timeLeft.minutes} label="Mins" />
+                <TimeUnit value={timeLeft.minutes} label="Mins" currentStyle={currentStyle} currentSize={currentSize} />
                 <span className={cn("font-bold self-start mt-2", currentStyle.separator, size === 'lg' ? 'mt-4 text-2xl' : '')}>:</span>
-                <TimeUnit value={timeLeft.seconds} label="Secs" />
+                <TimeUnit value={timeLeft.seconds} label="Secs" currentStyle={currentStyle} currentSize={currentSize} />
             </div>
         </div>
     );
 }
+
+const TimeUnit = ({ value, label, currentStyle, currentSize }) => (
+    <div className="flex flex-col items-center">
+        <div className={cn(
+            "backdrop-blur-sm rounded-lg text-center border shadow-sm transition-all",
+            currentStyle.box,
+            currentSize.box
+        )}>
+            <span className={cn("font-bold block leading-none", currentSize.num)}>
+                {String(value).padStart(2, '0')}
+            </span>
+            <span className={cn("uppercase font-bold mt-0.5 block", currentStyle.label, currentSize.label)}>
+                {label}
+            </span>
+        </div>
+    </div>
+);
