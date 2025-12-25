@@ -33,7 +33,7 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
-### 4. Run the Development Server
+### 4. Run the Development Server*(inside src folder)
 ```bash
 npm run dev
 ```
