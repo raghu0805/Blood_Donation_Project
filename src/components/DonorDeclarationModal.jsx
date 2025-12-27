@@ -89,15 +89,28 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm }) {
     });
 
 
+    // Flatten all IDs for easy access
+    const allIds = sections.flatMap(s => s.items.map(i => i.id));
+    const isAllSelected = allIds.length > 0 && allIds.every(id => checkedItems[id]);
+
     // Validation Logic
     useEffect(() => {
-        const allIds = sections.flatMap(s => s.items.map(i => i.id));
         const allChecked = allIds.every(id => checkedItems[id]);
         setCanSubmit(allChecked);
     }, [checkedItems, sections]);
 
     const handleCheck = (id) => {
         setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            setCheckedItems({});
+        } else {
+            const newChecked = {};
+            allIds.forEach(id => { newChecked[id] = true; });
+            setCheckedItems(newChecked);
+        }
     };
 
     if (!isOpen) return null;
@@ -125,6 +138,19 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm }) {
                             <strong>Important:</strong> Providing false information puts both you and the patient at risk.
                             Please answer truthfully.
                         </p>
+                    </div>
+
+                    {/* Select All Checkbox */}
+                    <div className="flex justify-end border-b border-gray-100 pb-2">
+                        <label className="flex items-center gap-2 cursor-pointer select-none py-2 px-3 rounded-md hover:bg-gray-50 transition-colors">
+                            <input
+                                type="checkbox"
+                                className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600"
+                                checked={isAllSelected}
+                                onChange={handleSelectAll}
+                            />
+                            <span className="font-bold text-gray-800">Select All</span>
+                        </label>
                     </div>
 
                     <div className="space-y-6">

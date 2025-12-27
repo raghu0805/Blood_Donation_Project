@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 
 import { MCPProvider } from './contexts/MCPContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
@@ -52,54 +53,63 @@ function App() {
     return (
         <BrowserRouter>
             <ThemeProvider>
-                <AuthProvider>
-                    <MCPProvider>
-                        <Routes>
-                            <Route path="/" element={<Layout />}>
-                                <Route index element={<LandingPage />} />
-                                <Route path="auth" element={<AuthPage />} />
-                                <Route path="role-selection" element={<RoleSelection />} />
+                <ToastProvider>
+                    <AuthProvider>
+                        <MCPProvider>
+                            <Routes>
+                                <Route path="/" element={<Layout />}>
+                                    <Route index element={<LandingPage />} />
+                                    <Route path="auth" element={<AuthPage />} />
+                                    <Route path="role-selection" element={<RoleSelection />} />
 
-                                <Route path="donor-dashboard" element={
-                                    <ProtectedRoute allowedRoles={['donor']}>
-                                        <DonorDashboard />
-                                    </ProtectedRoute>
-                                } />
+                                    <Route path="donor-dashboard" element={
+                                        <ProtectedRoute allowedRoles={['donor']}>
+                                            <DonorDashboard />
+                                        </ProtectedRoute>
+                                    } />
 
-                                <Route path="patient-dashboard" element={
-                                    <ProtectedRoute allowedRoles={['patient']}>
-                                        <PatientDashboard />
-                                    </ProtectedRoute>
-                                } />
+                                    <Route path="patient-dashboard" element={
+                                        <ProtectedRoute allowedRoles={['patient']}>
+                                            <PatientDashboard />
+                                        </ProtectedRoute>
+                                    } />
 
-                                <Route path="chat/:requestId" element={
-                                    <ProtectedRoute>
-                                        <ChatPage />
-                                    </ProtectedRoute>
-                                } />
+                                    <Route path="chat/:requestId" element={
+                                        <ProtectedRoute>
+                                            <ChatPage />
+                                        </ProtectedRoute>
+                                    } />
 
-                                <Route path="track/:requestId" element={
-                                    <ProtectedRoute>
-                                        <TrackingPage />
-                                    </ProtectedRoute>
-                                } />
+                                    <Route path="track/:requestId" element={
+                                        <ProtectedRoute>
+                                            <TrackingPage />
+                                        </ProtectedRoute>
+                                    } />
 
-                                <Route path="profile" element={
-                                    <ProtectedRoute>
-                                        <ProfilePage />
-                                    </ProtectedRoute>
-                                } />
-                            </Route>
+                                    <Route path="profile" element={
+                                        <ProtectedRoute>
+                                            <ProfilePage />
+                                        </ProtectedRoute>
+                                    } />
 
-                            <Route path="/admin-login" element={<AdminLoginPage />} />
-                            <Route path="/admin" element={
-                                <ProtectedRoute allowedRoles={['admin']}>
-                                    <AdminDashboard />
-                                </ProtectedRoute>
-                            } />
-                        </Routes>
-                    </MCPProvider>
-                </AuthProvider>
+                                    <Route path="admin" element={
+                                        <ProtectedRoute allowedRoles={['admin']}>
+                                            <LandingPage />
+                                        </ProtectedRoute>
+                                    } />
+
+                                    <Route path="admin-dashboard" element={
+                                        <ProtectedRoute allowedRoles={['admin']}>
+                                            <AdminDashboard />
+                                        </ProtectedRoute>
+                                    } />
+                                </Route>
+
+                                <Route path="/admin-login" element={<AdminLoginPage />} />
+                            </Routes>
+                        </MCPProvider>
+                    </AuthProvider>
+                </ToastProvider>
             </ThemeProvider>
         </BrowserRouter>
     );

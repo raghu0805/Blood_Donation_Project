@@ -4,11 +4,13 @@ import { calculateDonationEligibility, compressImage } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { VerificationBadge } from '../components/VerificationBadge';
-import { User, Heart, Droplet, Edit2, Save, X, Clock } from 'lucide-react';
+import { User, Heart, Droplet, Edit2, Save, X, Clock, Activity } from 'lucide-react';
+
+import { BackButton } from '../components/BackButton';
 
 export default function ProfilePage() {
     const { currentUser, userRole } = useAuth();
@@ -18,8 +20,6 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false);
     const [loadingStats, setLoadingStats] = useState(true);
     const [uploading, setUploading] = useState(false);
-
-    // Form State
 
     // Form State
     const [formData, setFormData] = useState({
@@ -38,6 +38,15 @@ export default function ProfilePage() {
     // Stats State
     const [donationsMade, setDonationsMade] = useState([]);
     const [donationsReceived, setDonationsReceived] = useState([]);
+
+    // Intake Modal State
+    const [showIntakeModal, setShowIntakeModal] = useState(false);
+    const [intakeData, setIntakeData] = useState({
+        donorName: '',
+        bloodGroup: 'O+',
+        quantity: 1,
+        notes: ''
+    });
 
     useEffect(() => {
         if (currentUser) {
@@ -71,7 +80,7 @@ export default function ProfilePage() {
             });
             fetchStats();
         }
-    }, [currentUser]);
+    }, [currentUser, userRole]);
 
 
 
@@ -100,22 +109,56 @@ export default function ProfilePage() {
         try {
             // 1. Fetch Donations Made (from subcollection OR just use profile count + query if needed)
             // Using the new subcollection 'donations' for detailed history
-            const madeQuery = query(collection(db, 'users', currentUser.uid, 'donations'), orderBy('completedAt', 'desc'));
-            const madeSnap = await getDocs(madeQuery);
-            setDonationsMade(madeSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+            // 1. Fetch Donations Made (or Admin Fulfillments)
+            let madeQuery;
+            if (userRole === 'admin') {
+                // Admin: Fetch requests fulfilled by me (Outgoing)
+                madeQuery = query(collection(db, 'requests'), where('donorId', '==', currentUser.uid), where('status', '==', 'completed'));
+            } else {
+                // User/Donor: Fetch personal donations
+                madeQuery = query(collection(db, 'users', currentUser.uid, 'donations'), orderBy('completedAt', 'desc'));
+            }
 
-            // 2. Fetch Donations Received (Requests where I am patient AND status is completed)
-            const receivedQuery = query(
-                collection(db, 'requests'),
-                where('patientId', '==', currentUser.uid),
-                where('status', '==', 'completed')
-                // Index might be needed for orderBy, so let's stick to client sort or simple query first
-            );
-            const receivedSnap = await getDocs(receivedQuery);
-            const received = receivedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // Client sort
-            received.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
-            setDonationsReceived(received);
+            const madeSnap = await getDocs(madeQuery);
+            const made = madeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Client sort for Admin query lacking index
+            made.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+            setDonationsMade(made);
+
+            // 2. Fetch Donations Received / Intakes
+            // 2. Fetch Donations Received / Intakes / Network Activity
+            let receivedData = [];
+
+            if (userRole === 'admin') {
+                // Admin: Fetch manual intakes AND all completed network requests (excluding own fulfillments)
+                const intakesQuery = query(collection(db, 'users', currentUser.uid, 'intakes'), orderBy('completedAt', 'desc'));
+                const networkQuery = query(collection(db, 'requests'), where('status', '==', 'completed'));
+
+                const [intakesSnap, networkSnap] = await Promise.all([
+                    getDocs(intakesQuery),
+                    getDocs(networkQuery)
+                ]);
+
+                const intakes = intakesSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'manual' }));
+                const network = networkSnap.docs
+                    .map(d => ({ id: d.id, ...d.data(), source: 'network' }))
+                    .filter(d => d.donorId !== currentUser.uid); // Exclude admin's own outgoing donations
+
+                receivedData = [...intakes, ...network];
+            } else {
+                // Patient: Fetch fulfilled requests
+                const receivedQuery = query(
+                    collection(db, 'requests'),
+                    where('patientId', '==', currentUser.uid),
+                    where('status', '==', 'completed')
+                );
+                const receivedSnap = await getDocs(receivedQuery);
+                receivedData = receivedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+
+            // Global Sort
+            receivedData.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+            setDonationsReceived(receivedData);
 
         } catch (err) {
             console.error("Error fetching stats:", err);
@@ -207,7 +250,10 @@ export default function ProfilePage() {
     return (
         <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24 relative">
 
-            <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+            <div className="flex items-center gap-4">
+                <BackButton />
+                <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+            </div>
 
             {/* Profile Card */}
             <Card className="p-6 bg-white dark:bg-gray-800 dark:border-gray-700">
@@ -234,7 +280,13 @@ export default function ProfilePage() {
                             onChange={handleImageUpload}
                             disabled={uploading}
                         />
-                        <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md border border-gray-200 cursor-pointer pointer-events-none">
+                        <div
+                            className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent double click if bubble happens
+                                document.getElementById('photo-upload').click();
+                            }}
+                        >
                             <Edit2 className="h-3 w-3 text-gray-600" />
                         </div>
                     </div>
@@ -381,9 +433,11 @@ export default function ProfilePage() {
                                     <p className="text-gray-500 dark:text-gray-400">{currentUser?.email}</p>
 
                                     <div className="flex flex-wrap gap-2 mt-2">
-                                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                                            Blood Group: {currentUser?.bloodGroup || "Not Set"}
-                                        </div>
+                                        {userRole !== 'admin' && (
+                                            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                                                Blood Group: {currentUser?.bloodGroup || "Not Set"}
+                                            </div>
+                                        )}
                                         {currentUser?.gender && (
                                             <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700/50 text-gray-800 dark:text-gray-300">
                                                 {currentUser.gender}
@@ -591,6 +645,185 @@ export default function ProfilePage() {
                                 </Button>
                             </div>
                         </Card>
+
+                        {/* Admin Transaction History (New) */}
+                        <Card className="mt-6 p-6 bg-white dark:bg-gray-800 border-l-4 border-l-blue-600 dark:border-gray-700">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                                <Activity className="h-6 w-6 text-blue-600 dark:text-blue-500" />
+                                Blood Transaction History
+                            </h3>
+
+                            <div className="grid md:grid-cols-2 gap-8">
+                                {/* Outgoing / Distributed */}
+                                <div>
+                                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                                        <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                                        Blood Distributed (to Patients)
+                                    </h4>
+                                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                        {donationsMade.length === 0 ? (
+                                            <p className="text-sm text-gray-500 italic">No recent distributions found.</p>
+                                        ) : (
+                                            donationsMade.map(d => (
+                                                <div key={d.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+                                                    <div>
+                                                        <p className="font-bold text-gray-900 dark:text-white text-sm">{d.patientName || "Anonymous Patient"}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {d.completedAt?.seconds ? new Date(d.completedAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="font-bold text-red-600 dark:text-red-400 block">{d.bloodGroup}</span>
+                                                        <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full uppercase tracking-wide">Fulfilled</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Incoming / Received (Placeholder for now as we don't track donor-to-bank history yet) */}
+                                <div>
+                                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                                        Blood Received (from Donors)
+                                    </h4>
+
+                                    <div className="mb-4">
+                                        <Button onClick={() => setShowIntakeModal(true)} variant="outline" size="sm" className="w-full border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                            + Log Manual Intake
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                        {donationsReceived.length === 0 ? (
+                                            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600 text-center">
+                                                <p className="text-sm text-gray-500">No intakes recorded yet.</p>
+                                            </div>
+                                        ) : (
+                                            donationsReceived.map(d => (
+                                                <div key={d.id} className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                                    <div>
+                                                        <p className="font-bold text-gray-900 dark:text-white text-sm">{d.donorName || "Anonymous Donor"}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {d.completedAt?.seconds ? new Date(d.completedAt.seconds * 1000).toLocaleDateString() : 'Just now'}
+                                                            {d.notes && <span className="ml-2 italic opacity-75">- {d.notes}</span>}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="font-bold text-blue-600 dark:text-blue-400 block">{d.bloodGroup}</span>
+                                                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wide">Received</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Manual Intake Modal */}
+                        {showIntakeModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                                <Card className="w-full max-w-sm bg-white dark:bg-gray-800 p-6 shadow-2xl animate-fade-in-up">
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Log Blood Intake</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Donor Name / Source</label>
+                                            <input
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                placeholder="e.g. John Doe / Walk-in"
+                                                value={intakeData.donorName}
+                                                onChange={e => setIntakeData({ ...intakeData, donorName: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-semibold text-gray-500 uppercase">Blood Group</label>
+                                                <select
+                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                    value={intakeData.bloodGroup}
+                                                    onChange={e => setIntakeData({ ...intakeData, bloodGroup: e.target.value })}
+                                                >
+                                                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                                                        <option key={bg} value={bg}>{bg}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-semibold text-gray-500 uppercase">Quantity (Units)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                    value={intakeData.quantity}
+                                                    onChange={e => setIntakeData({ ...intakeData, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Notes (Optional)</label>
+                                            <input
+                                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                                placeholder="e.g. Donation Camp"
+                                                value={intakeData.notes}
+                                                onChange={e => setIntakeData({ ...intakeData, notes: e.target.value })}
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-3 mt-6">
+                                            <Button
+                                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800"
+                                                onClick={() => setShowIntakeModal(false)}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                                onClick={async () => {
+                                                    try {
+                                                        // 1. Add Log
+                                                        await addDoc(collection(db, 'users', currentUser.uid, 'intakes'), {
+                                                            ...intakeData,
+                                                            completedAt: serverTimestamp(),
+                                                            type: 'manual_intake'
+                                                        });
+
+                                                        // 2. Update Stock
+                                                        await updateUserProfile({
+                                                            bloodStock: {
+                                                                [intakeData.bloodGroup]: increment(intakeData.quantity)
+                                                            }
+                                                        });
+
+                                                        // 3. UI Updates
+                                                        alert("Intake Logged & Stock Updated!");
+                                                        setShowIntakeModal(false);
+                                                        setIntakeData({ donorName: '', bloodGroup: 'O+', quantity: 1, notes: '' });
+                                                        // Optimistic or real fetch
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            bloodStock: {
+                                                                ...prev.bloodStock,
+                                                                [intakeData.bloodGroup]: (prev.bloodStock?.[intakeData.bloodGroup] || 0) + intakeData.quantity
+                                                            }
+                                                        }));
+                                                        fetchStats();
+
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("Failed to log intake.");
+                                                    }
+                                                }}
+                                            >
+                                                Log Intake
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </div>
+                        )}
+
                     </div>
                 )
             }

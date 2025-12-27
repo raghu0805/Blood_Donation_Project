@@ -94,7 +94,7 @@ export default function TrackingPage() {
     };
 
     return (
-        <div className="h-[calc(100vh-4rem)] flex flex-col relative">
+        <div className="h-[calc(100dvh-4rem)] flex flex-col relative">
             {/* Header Overlay */}
             <div className="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-start pointer-events-none">
                 <Button onClick={() => navigate(-1)} className="pointer-events-auto shadow-lg bg-white text-gray-800 hover:bg-gray-100 rounded-full h-10 w-10 p-0 flex items-center justify-center">

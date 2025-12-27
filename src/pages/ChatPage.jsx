@@ -127,14 +127,7 @@ export default function ChatPage() {
                             {requestDetails?.bloodGroup} Request • {requestDetails?.urgency}
                         </p>
                     </div>
-                    <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
-                        onClick={() => navigate(`/track/${requestId}`)}
-                    >
-                        <Navigation className="h-4 w-4" />
-                        <span className="hidden sm:inline">Live Track</span>
-                    </Button>
+
                 </div>
             </Card>
 

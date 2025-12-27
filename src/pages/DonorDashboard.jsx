@@ -38,6 +38,13 @@ export default function DonorDashboard() {
             return;
         }
 
+        if (val && !currentUser?.isVerified) {
+            if (confirm("Verification Required: You must verify your identity to appear available for donation. Go to Profile?")) {
+                navigate('/profile');
+            }
+            return;
+        }
+
         if (val === true) {
             // Turning ON: Require Declaration
             setPendingAvailability(true);
@@ -79,14 +86,14 @@ export default function DonorDashboard() {
             {/* Header Stat Card */}
             <Card className={`border-l-4 ${eligible ? 'border-l-red-600' : 'border-l-amber-500'}`}>
                 <CardContent>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Donor Status</h2>
                             <p className={`text-sm ${!eligible ? 'text-amber-600 dark:text-amber-500 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {!eligible ? "Recovery Period Active" : (isAvailable ? "You are visible to nearby patients." : "You are currently offline.")}
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg sm:bg-transparent sm:p-0">
                             <span className={`text-sm font-medium ${!eligible ? 'text-amber-600 dark:text-amber-500' : (isAvailable ? 'text-red-600 dark:text-red-500' : 'text-gray-400 dark:text-gray-500')}`}>
                                 {!eligible ? <CountdownTimer targetDate={nextDate} /> : (isAvailable ? 'Available' : 'Unavailable')}
                             </span>
@@ -143,7 +150,7 @@ export default function DonorDashboard() {
                             <p className="text-gray-500 dark:text-gray-400 italic">No active requests in your area.</p>
                         ) : (
                             activeRequests.map(req => (
-                                <RequestCard key={req.id} request={req} />
+                                <RequestCard key={req.id} request={req} eligible={eligible} recoveryMessage={message} />
                             ))
                         )}
                     </div>
@@ -174,7 +181,7 @@ export default function DonorDashboard() {
     );
 }
 
-function RequestCard({ request }) {
+function RequestCard({ request, eligible, recoveryMessage }) {
     const { acceptRequest } = useMCP();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
@@ -184,6 +191,18 @@ function RequestCard({ request }) {
     const isAcceptedByMe = request.status === 'accepted' && request.donorId === currentUser?.uid;
 
     const handleAcceptClick = () => {
+        if (eligible === false) { // Explicit check as it might be undefined if not passed correctly, though we passed it.
+            // eligible is boolean from calculateDonationEligibility.
+            alert(`Cannot accept: Recovery Period Active.\n${recoveryMessage || 'Please wait until your recovery period is over.'}`);
+            return;
+        }
+
+        if (!currentUser?.isVerified) {
+            if (confirm("Verification Required: You must verify your identity to accept blood requests. Go to Profile?")) {
+                navigate('/profile');
+            }
+            return;
+        }
         setShowConsent(true);
     };
 
@@ -217,30 +236,30 @@ function RequestCard({ request }) {
                     <span className={`inline-block px-2 py-1 text-xs font-bold rounded mb-2 ${isAcceptedByMe ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'}`}>
                         {isAcceptedByMe ? 'ACCEPTED' : request.urgency}
                     </span>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">{request.patientName}</h4>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white break-words pr-2">{request.patientName}</h4>
                     <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        <MapPin className="h-4 w-4 mr-1" />
+                        <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
                         {request.distance || "Unknown distance"} away
                     </div>
                 </div>
-                <div className="h-12 w-12 bg-red-600 dark:bg-red-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-red-200 dark:shadow-none">
+                <div className="h-12 w-12 bg-red-600 dark:bg-red-500 rounded-lg flex flex-shrink-0 items-center justify-center text-white font-bold text-xl shadow-lg shadow-red-200 dark:shadow-none">
                     {request.bloodGroup}
                 </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
                 {isAcceptedByMe ? (
                     <Button
-                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        className="flex-1 bg-green-600 hover:bg-green-700 w-full"
                         size="sm"
                         onClick={() => navigate(`/chat/${request.id}`)}
                     >
                         Chat with Patient
                     </Button>
                 ) : (
-                    <Button className="flex-1" size="sm" onClick={handleAcceptClick}>Accept Request</Button>
+                    <Button className="flex-1 w-full" size="sm" onClick={handleAcceptClick}>Accept Request</Button>
                 )}
-                <Button variant="secondary" size="sm">View Details</Button>
+
             </div>
         </motion.div>
     );

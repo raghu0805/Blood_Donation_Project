@@ -337,6 +337,100 @@ export function MCPProvider({ children }) {
         }
     };
 
+    const fulfillRequestByAdmin = async (requestId, bloodGroup) => {
+        if (!currentUser || userRole !== 'admin') return;
+        const pickupCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const adminRef = doc(db, "users", currentUser.uid);
+                const requestRef = doc(db, "requests", requestId);
+
+                const adminDoc = await transaction.get(adminRef);
+                const requestDoc = await transaction.get(requestRef);
+
+                if (!adminDoc.exists()) throw "Admin profile not found!";
+                if (!requestDoc.exists()) throw "Request not found!";
+
+                const adminData = adminDoc.data();
+                const currentStock = adminData.bloodStock?.[bloodGroup] || 0;
+
+                if (currentStock <= 0) {
+                    throw `Insufficient stock for ${bloodGroup}! Current stock: ${currentStock}`;
+                }
+
+                if (requestDoc.data().status === 'completed') {
+                    throw "Request already completed!";
+                }
+
+                // Deduct Stock (Reserve)
+                const stockField = `bloodStock.${bloodGroup}`;
+                transaction.update(adminRef, {
+                    [stockField]: increment(-1)
+                    // livesSaved increment moved to final verification step
+                });
+
+                // Complete Request -> Ready for Pickup
+                transaction.update(requestRef, {
+                    status: 'ready_for_pickup',
+                    pickupCode: pickupCode,
+                    updatedAt: serverTimestamp(),
+                    donorId: currentUser.uid,
+                    donorName: currentUser.displayName || "Blood Bank Admin",
+                    donorPhone: currentUser.phoneNumber || "Blood Bank",
+                    fulfillmentType: 'stock_supply'
+                });
+            });
+            console.log("MCP: Admin fulfilled request from stock - waiting for pickup");
+
+            // Send automated notification message
+            await sendMessage(requestId, `Great news! We have reserved the blood for your request. Your Secure Pickup Code is: ${pickupCode}. Please show this code at the Blood Bank counter to collect it.`, {
+                type: 'system',
+                system: true,
+                pickupCode: pickupCode
+            });
+
+        } catch (error) {
+            console.error("MCP: Error fulfilling request", error);
+            throw error;
+        }
+    };
+
+    const verifyPickupCode = async (requestId, inputCode) => {
+        if (!currentUser || userRole !== 'admin') return;
+        try {
+            await runTransaction(db, async (transaction) => {
+                const requestRef = doc(db, "requests", requestId);
+                const adminRef = doc(db, "users", currentUser.uid);
+
+                const requestDoc = await transaction.get(requestRef);
+                if (!requestDoc.exists()) throw "Request not found";
+
+                const data = requestDoc.data();
+                if (data.status !== 'ready_for_pickup') throw "Request is not awaiting pickup.";
+                if (data.pickupCode !== inputCode) throw "Invalid Pickup Code! Please check with patient.";
+
+                // Complete
+                transaction.update(requestRef, {
+                    status: 'completed',
+                    completedAt: serverTimestamp(),
+                    verifiedBy: currentUser.uid
+                });
+
+                // Now increment lives saved
+                transaction.update(adminRef, {
+                    livesSaved: increment(1)
+                });
+            });
+
+            await sendMessage(requestId, `Handover Complete! The pickup verification was successful. We are honored to support you – wishing the patient a speedy recovery!`, { type: 'system', system: true });
+            console.log("MCP: Pickup verified and completed.");
+        } catch (error) {
+            console.error("MCP: Verification Error", error);
+            throw error;
+        }
+    };
+
     const updateUserProfile = async (data) => {
         if (!currentUser) return;
         try {
@@ -366,6 +460,8 @@ export function MCPProvider({ children }) {
         acceptRequest,
         sendMessage,
         completeRequest,
+        fulfillRequestByAdmin,
+        verifyPickupCode, // Added
         updateLiveLocation,
         updateUserProfile
     };

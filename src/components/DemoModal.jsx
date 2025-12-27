@@ -30,7 +30,7 @@ export default function DemoModal({ isOpen, onClose }) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-gray-900 w-full max-w-5xl aspect-video rounded-3xl overflow-hidden shadow-2xl relative flex flex-col"
+                className="bg-white dark:bg-gray-900 w-[95vw] md:w-full max-w-5xl max-h-[85dvh] aspect-[4/5] md:aspect-video rounded-3xl overflow-hidden shadow-2xl relative flex flex-col"
             >
                 {/* Header */}
                 <div className="absolute top-4 right-4 z-20">
@@ -148,7 +148,7 @@ function Hospital() {
 function SceneRequest() {
     return (
         <div className="flex flex-col items-center gap-8">
-            <div className="flex items-end gap-12">
+            <div className="flex items-end gap-2 md:gap-12 scale-75 md:scale-100 origin-bottom">
                 {/* Hospital */}
                 <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
                     <Hospital />
@@ -205,18 +205,18 @@ function SceneBroadcast() {
             </div>
 
             {/* Donors appearing */}
-            <motion.div className="absolute top-20 left-1/4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
-                <Human color="bg-blue-500" />
+            <motion.div className="absolute top-[25%] left-[10%] scale-75 md:scale-100" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
+                <Human color="bg-blue-500" scale={0.8} />
                 <NotificationBubble delay={1.5} />
             </motion.div>
 
-            <motion.div className="absolute bottom-32 right-1/4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}>
-                <Human color="bg-indigo-500" />
+            <motion.div className="absolute bottom-[35%] right-[15%] scale-75 md:scale-100" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}>
+                <Human color="bg-indigo-500" scale={0.8} />
                 <NotificationBubble delay={1.7} />
             </motion.div>
 
-            <motion.div className="absolute top-32 right-20" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }}>
-                <Human color="bg-teal-500" />
+            <motion.div className="absolute top-[35%] right-[5%] scale-75 md:scale-100" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }}>
+                <Human color="bg-teal-500" scale={0.8} />
                 <NotificationBubble delay={1.9} />
             </motion.div>
 
@@ -246,9 +246,9 @@ function SceneTravel() {
     return (
         <div className="w-full flex flex-col items-center justify-center relative h-full">
             {/* Road */}
-            <div className="absolute bottom-32 w-2/3 h-2 bg-gray-200 rounded-full" />
+            <div className="absolute bottom-1/3 md:bottom-32 w-2/3 h-2 bg-gray-200 rounded-full" />
 
-            <div className="flex justify-between w-1/2 items-end relative z-10 mb-8">
+            <div className="flex justify-between w-[90%] md:w-1/2 items-end relative z-10 mb-8 scale-90 md:scale-100 origin-bottom">
                 {/* Donor Walking */}
                 <motion.div
                     initial={{ x: -100 }}

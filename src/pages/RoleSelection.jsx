@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/Card';
 import { User, Activity } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { BackButton } from '../components/BackButton';
 
 export default function RoleSelection() {
     const { assignRole } = useAuth();
@@ -25,7 +26,10 @@ export default function RoleSelection() {
     };
 
     return (
-        <div className="space-y-8 py-8">
+        <div className="space-y-8 py-8 relative">
+            <div className="absolute top-0 left-0">
+                <BackButton to="/" />
+            </div>
             <div className="text-center">
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">How do you want to help?</h2>
                 <p className="text-gray-500 dark:text-gray-400 mt-2">Select your primary role using LifeLink.</p>

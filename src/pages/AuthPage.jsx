@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { Card, CardContent, CardHeader } from '../components/Card';
 import { HeartPulse, Mail, Lock, User, Calendar, Droplets } from 'lucide-react';
+
+import { BackButton } from '../components/BackButton';
 
 export default function AuthPage() {
     const { loginWithGoogle, signupWithEmail, loginWithEmail } = useAuth();
@@ -21,6 +25,10 @@ export default function AuthPage() {
     const handleGoogleLogin = async () => {
         try {
             await loginWithGoogle();
+            // Google login might be a signup or login. 
+            // We'll rely on the AuthContext thinking or we can try to fetch here if we want immediate redirect on existing users.
+            // For now, let's defer to the standard flow or role selection since Google auth is tricky with new accounts.
+            // But if we want to support Admin Google Login (unlikely for now but possible):
             navigate('/role-selection');
         } catch (error) {
             console.error("Login Failed", error);
@@ -33,16 +41,41 @@ export default function AuthPage() {
         setIsLoading(true);
         try {
             if (isLogin) {
-                await loginWithEmail(formData.email, formData.password);
+                const cred = await loginWithEmail(formData.email, formData.password);
+
+                // Fetch user role immediately to decide redirection
+                const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const role = userData.role;
+
+                    if (role === 'admin') {
+                        navigate('/admin'); // Admin Landing Page
+                    } else if (role === 'donor') {
+                        navigate('/donor-dashboard');
+                    } else if (role === 'patient') {
+                        navigate('/patient-dashboard');
+                    } else {
+                        navigate('/role-selection');
+                    }
+                } else {
+                    navigate('/role-selection');
+                }
+
             } else {
+                const role = formData.bloodGroup ? 'donor' : 'patient';
                 await signupWithEmail(formData.email, formData.password, {
                     name: formData.name,
                     bloodGroup: formData.bloodGroup,
                     lastDonated: formData.lastDonated || null,
-                    role: formData.bloodGroup ? 'donor' : 'patient' // Auto-infer role logic can be here or step 2
+                    role: role
                 });
+
+                // Navigate based on the just-created role
+                if (role === 'donor') navigate('/donor-dashboard');
+                else navigate('/patient-dashboard');
             }
-            navigate('/role-selection');
         } catch (error) {
             console.error(error);
             alert("Error: " + error.message);
@@ -52,7 +85,10 @@ export default function AuthPage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
+        <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors relative">
+            <div className="absolute top-4 left-4">
+                <BackButton to="/" />
+            </div>
             <Card className="w-full max-w-md shadow-xl border-t-4 border-t-red-600">
                 <CardHeader className="text-center space-y-4 pt-8">
                     <div className="mx-auto h-16 w-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center shadow-inner">
@@ -104,7 +140,7 @@ export default function AuthPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Blood Group</label>
                                         <div className="relative">

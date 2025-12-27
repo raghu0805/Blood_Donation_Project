@@ -30,6 +30,13 @@ export function AuthProvider({ children }) {
                 unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
+                        console.log("Auth: Snapshot update", userData?.bloodStock);
+
+                        // Specific override for the hardcoded admin or admin role
+                        const isAdminUser = user.email === 'admin@gmail.com' || userData.role === 'admin';
+                        if (isAdminUser) {
+                            userData.isVerified = true;
+                        }
 
                         // Only update if we are NOT in the middle of a deliberate role switch
                         // This prevents race conditions where DB update comes before we navigate
@@ -37,10 +44,11 @@ export function AuthProvider({ children }) {
                             setUserRole(userData.role);
                         }
 
-                        setCurrentUser({ ...user, ...userData });
+                        setCurrentUser({ ...user, ...userData, isVerified: isAdminUser || userData.isVerified });
                     } else {
                         // New user logic or fallback
-                        setCurrentUser(user);
+                        const isAdminUser = user.email === 'admin@gmail.com';
+                        setCurrentUser({ ...user, isVerified: isAdminUser });
                         setUserRole(null);
                     }
                     setLoading(false);

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMCP } from '../contexts/MCPContext';
 import { Card, CardHeader, CardContent } from '../components/Card';
 import { Button } from '../components/Button';
-import { Sparkles, MapPin, AlertCircle, Activity } from 'lucide-react';
+import { Sparkles, MapPin, AlertCircle, Activity, CheckCircle } from 'lucide-react';
 
 export default function PatientDashboard() {
     const { availableDonors, requestGeminiAnalysis, geminiAnalysis, broadcastRequest, myRequests, completeRequest } = useMCP();
@@ -42,12 +42,12 @@ export default function PatientDashboard() {
     return (
         <div className="space-y-8">
             {/* Header Actions */}
-            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Find a Donor</h1>
                     <p className="text-gray-500 dark:text-gray-400">Create a request to alert nearby donors.</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} size="lg" className="shadow-lg shadow-red-200">
+                <Button onClick={() => setShowForm(!showForm)} size="lg" className="w-full sm:w-auto shadow-lg shadow-red-200">
                     {showForm ? 'Cancel Request' : 'New Emergency Request'}
                 </Button>
             </div>
@@ -105,46 +105,64 @@ export default function PatientDashboard() {
                     </h3>
                     {myRequests.map(req => (
                         <Card key={req.id} className={`border-l-4 ${req.status === 'accepted' ? 'border-l-green-500 bg-green-50 dark:bg-green-900/10 dark:border-green-900/50' : 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10 dark:border-l-amber-500/50'}`}>
-                            <CardContent className="flex justify-between items-center p-4">
-                                <div>
-                                    <div className="flex items-center gap-2">
+                            <CardContent className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 gap-4">
+                                <div className="w-full sm:w-auto">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-bold text-gray-900 dark:text-white">{req.bloodGroup} Blood Needed</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${req.status === 'accepted' ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' : 'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'}`}>
-                                            {req.status.toUpperCase()}
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${req.status === 'completed' ? 'bg-blue-200 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' :
+                                                req.status === 'ready_for_pickup' ? 'bg-purple-200 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300' :
+                                                    req.status === 'accepted' ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' :
+                                                        'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                                            }`}>
+                                            {req.status === 'completed' && req.fulfillmentType === 'stock_supply' ? 'SUPPLIED BY BANK' :
+                                                req.status === 'ready_for_pickup' ? 'READY FOR PICKUP' :
+                                                    req.status.toUpperCase()}
                                         </span>
                                     </div>
                                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                        {req.status === 'accepted'
-                                            ? `Accepted by: ${req.donorName || 'Unknown Donor'}`
-                                            : req.status === 'completed'
-                                                ? 'Donation Completed'
-                                                : 'Waiting for donors...'
-                                        }
+                                        {req.status === 'accepted' ? `Accepted by: ${req.donorName || 'Unknown Donor'}` :
+                                            req.status === 'ready_for_pickup' ? 'Blood Reserved. Please visit bank with pickup code.' :
+                                                req.status === 'completed' ? (req.fulfillmentType === 'stock_supply' ? 'Fulfilled directly by Blood Bank Stock.' : 'Donation cycle completed successfully.') :
+                                                    'Waiting for donors...'}
                                     </p>
+
+                                    {/* Pickup Code Display */}
+                                    {req.status === 'ready_for_pickup' && req.pickupCode && (
+                                        <div className="mt-3 bg-white dark:bg-gray-800 p-3 rounded border-2 border-dashed border-purple-300 text-center">
+                                            <p className="text-xs font-bold text-gray-500 uppercase mb-1">Pickup Verification Code</p>
+                                            <p className="text-4xl font-mono font-bold text-purple-600 tracking-widest">{req.pickupCode}</p>
+                                            <p className="text-xs text-gray-400 mt-1">Show this code at the blood bank counter.</p>
+                                        </div>
+                                    )}
+
                                 </div>
-                                <div className="flex flex-col gap-2">
+                                <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                                     {req.status === 'accepted' && (
                                         <>
                                             <Button
                                                 size="sm"
-                                                className="bg-green-600 hover:bg-green-700"
+                                                className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700"
                                                 onClick={() => handleContact(req.id)}
                                             >
-                                                Contact Donor
+                                                Contact
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                className="bg-blue-600 hover:bg-blue-700"
+                                                className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700"
                                                 onClick={() => handleComplete(req.id)}
                                             >
-                                                Blood Received
+                                                Received
                                             </Button>
                                         </>
                                     )}
-                                    {req.status === 'completed' && (
-                                        <span className="text-green-600 font-bold text-sm bg-green-100 px-3 py-1 rounded-full">
-                                            ✔ Completed
-                                        </span>
+                                    {(req.status === 'completed' || req.status === 'ready_for_pickup') && (
+                                        <div className="text-right w-full">
+                                            <span className={`font-bold text-sm px-3 py-1 rounded-full flex items-center justify-center sm:justify-end gap-1 ${req.status === 'ready_for_pickup' ? 'text-purple-600 bg-purple-100' : 'text-green-600 bg-green-100'
+                                                }`}>
+                                                <CheckCircle className="h-3 w-3" />
+                                                {req.status === 'ready_for_pickup' ? 'Reserved' : req.fulfillmentType === 'stock_supply' ? 'Stock Supplied' : 'Completed'}
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                             </CardContent>

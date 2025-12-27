@@ -4,4 +4,19 @@
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  /* Mobile Safe Areas */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+body {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  /* Prevent double-tap to zoom on mobile */
+  touch-action: manipulation;
 }
