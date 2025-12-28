@@ -7,7 +7,7 @@ import { Button } from '../components/Button';
 import { Switch } from '@headlessui/react';
 import { MapPin, Bell, Clock, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { calculateDonationEligibility } from '../lib/utils';
+import { calculateDonationEligibility, canDonate } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { DonorDeclarationModal } from '../components/DonorDeclarationModal';
 
@@ -257,7 +257,38 @@ function RequestCard({ request, eligible, recoveryMessage }) {
                         Chat with Patient
                     </Button>
                 ) : (
-                    <Button className="flex-1 w-full" size="sm" onClick={handleAcceptClick}>Accept Request</Button>
+                    <div className="flex-1 w-full space-y-2">
+                        {canDonate(currentUser?.bloodGroup, request.bloodGroup) ? (
+                            <Button className="w-full" size="sm" onClick={handleAcceptClick}>Accept Request</Button>
+                        ) : (
+                            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 p-3 rounded-lg text-center">
+                                <p className="text-sm text-amber-800 dark:text-amber-400 font-medium mb-2">
+                                    You cannot donate for this request (Incompatible Blood Type). But you can share this with a friend.
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full border-amber-300 text-amber-700 hover:bg-amber-100"
+                                    onClick={() => {
+                                        const shareTitle = `Urgent: ${request.bloodGroup} Blood Needed!`;
+                                        const shareText = `URGENT: ${request.patientName} needs ${request.bloodGroup} blood at ${request.hospitalName || 'a nearby hospital'}.\n\nInstructions for Friend:\n1. Check if you are blood group ${request.bloodGroup} (or compatible).\n2. If you are willing to donate, please contact the requester immediately.\n\nContact Email: ${request.patientEmail || 'Not available via detailed share'}\n\n(Shared via LifeLink)`;
+
+                                        if (navigator.share) {
+                                            navigator.share({
+                                                title: shareTitle,
+                                                text: shareText
+                                            }).catch(console.error);
+                                        } else {
+                                            // Fallback for desktop/non-supported
+                                            alert("Copy this message to share:\n\n" + shareText);
+                                        }
+                                    }}
+                                >
+                                    Share Request
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 )}
 
             </div>

@@ -75,8 +75,34 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
     return d.toFixed(1);
 };
 
+
 function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
+export const canDonate = (donorBlood, patientBlood) => {
+    if (!donorBlood || !patientBlood) return false;
 
+    // MEDICAL COMPATIBILITY (Universal Donor Logic)
+    // Uncomment this block if you want to allow medically compatible donations (e.g. O+ -> A+)
+    /*
+    const cleanDonor = donorBlood.trim().toUpperCase();
+    const cleanPatient = patientBlood.trim().toUpperCase();
+
+    const compatibility = {
+        'O-': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],
+        'O+': ['O+', 'A+', 'B+', 'AB+'],
+        'A-': ['A-', 'A+', 'AB-', 'AB+'],
+        'A+': ['A+', 'AB+'],
+        'B-': ['B-', 'B+', 'AB-', 'AB+'],
+        'B+': ['B+', 'AB+'],
+        'AB-': ['AB-', 'AB+'],
+        'AB+': ['AB+']
+    };
+
+    return compatibility[cleanDonor]?.includes(cleanPatient) || false;
+    */
+
+    // STRICT MATCHING (User Preference: Requested vs Donated must match)
+    return donorBlood === patientBlood;
+};

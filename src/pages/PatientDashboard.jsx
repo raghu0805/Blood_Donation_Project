@@ -73,9 +73,13 @@ export default function PatientDashboard() {
                                     >
                                         <option value="">Select...</option>
                                         <option value="A+">A+</option>
-                                        <option value="O+">O+</option>
+                                        <option value="A-">A-</option>
                                         <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
                                         <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
                                     </select>
                                 </div>
                                 <div>
@@ -110,9 +114,9 @@ export default function PatientDashboard() {
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-bold text-gray-900 dark:text-white">{req.bloodGroup} Blood Needed</span>
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${req.status === 'completed' ? 'bg-blue-200 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' :
-                                                req.status === 'ready_for_pickup' ? 'bg-purple-200 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300' :
-                                                    req.status === 'accepted' ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' :
-                                                        'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                                            req.status === 'ready_for_pickup' ? 'bg-purple-200 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300' :
+                                                req.status === 'accepted' ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' :
+                                                    'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
                                             }`}>
                                             {req.status === 'completed' && req.fulfillmentType === 'stock_supply' ? 'SUPPLIED BY BANK' :
                                                 req.status === 'ready_for_pickup' ? 'READY FOR PICKUP' :

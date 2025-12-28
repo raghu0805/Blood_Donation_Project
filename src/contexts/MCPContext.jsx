@@ -20,6 +20,29 @@ export function MCPProvider({ children }) {
     const [userLocation, setUserLocation] = useState(null);
     const [locationError, setLocationError] = useState(null);
 
+    // Location Tracking Effect
+    useEffect(() => {
+        if (!currentUser) return;
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setUserLocation({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                    setLocationError(null);
+                },
+                (error) => {
+                    console.error("Error getting location:", error);
+                    setLocationError("Location access denied. Using default.");
+                    // Default fallback
+                    setUserLocation({ lat: 12.9716, lng: 77.5946 });
+                }
+            );
+        }
+    }, [currentUser]);
+
     // Real-time Firestore Listeners
     useEffect(() => {
         if (!userRole || !currentUser) return;
@@ -29,24 +52,7 @@ export function MCPProvider({ children }) {
         let unsubscribeMyRequests;
 
         if (userRole === 'patient') {
-            // 0. Get Real User Location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        setUserLocation({
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        });
-                        setLocationError(null);
-                    },
-                    (error) => {
-                        console.error("Error getting location:", error);
-                        setLocationError("Location access denied. Using default.");
-                        // Default fallback (e.g. Bangalore center)
-                        setUserLocation({ lat: 12.9716, lng: 77.5946 });
-                    }
-                );
-            }
+
 
             // 1. Listener: Active Donors (Existing)
             const qDonors = query(
@@ -127,10 +133,25 @@ export function MCPProvider({ children }) {
             );
 
             unsubscribeActiveRequests = onSnapshot(q, (snapshot) => {
-                const requests = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                const requests = snapshot.docs.map(doc => {
+                    const data = doc.data();
+
+                    // Calculate Distance
+                    let distanceDisplay = "Unknown";
+                    if (userLocation && data.location) {
+                        const dist = calculateDistance(
+                            userLocation.lat, userLocation.lng,
+                            data.location.lat, data.location.lng
+                        );
+                        distanceDisplay = dist ? `${dist} km` : "Unknown";
+                    }
+
+                    return {
+                        id: doc.id,
+                        ...data,
+                        distance: distanceDisplay
+                    };
+                });
                 // Sort LIFO (Last In First Out) - Newest First
                 requests.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 setActiveRequests(requests);
@@ -184,14 +205,48 @@ export function MCPProvider({ children }) {
     // Real Firestore Actions
     const broadcastRequest = async (requestData) => {
         try {
+            let finalLocation = userLocation;
+
+            // RACE CONDITION FIX: If location isn't ready, verify it explicitly
+            if (!finalLocation && navigator.geolocation) {
+                console.log("MCP: Location not ready, fetching explicitly...");
+                try {
+                    finalLocation = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => resolve({
+                                lat: pos.coords.latitude,
+                                lng: pos.coords.longitude
+                            }),
+                            (err) => reject(err),
+                            { timeout: 10000 }
+                        );
+                    });
+                    // Update state for future use
+                    setUserLocation(finalLocation);
+                } catch (err) {
+                    console.warn("MCP: Explicit location fetch failed, using default", err);
+                    alert("Warning: Could not fetch your precise location. Request will appear at the default location (Bangalore).\nPlease ensure Location Services are enabled for this specific site in your browser settings.");
+                }
+            }
+
+            // Fallback
+            if (!finalLocation) {
+                finalLocation = { lat: 12.9716, lng: 77.5946 };
+            } else {
+                // Determine if this is a "real" location or the default fallback from state
+                if (finalLocation.lat === 12.9716 && finalLocation.lng === 77.5946) {
+                    // It is the default
+                }
+            }
+
             await addDoc(collection(db, 'requests'), {
                 ...requestData,
                 patientId: currentUser.uid,
                 patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
+                patientEmail: currentUser.email,
                 status: 'pending',
                 createdAt: serverTimestamp(),
-                // Mock location for now if not provided
-                location: requestData.location || { lat: 12.9716, lng: 77.5946 }
+                location: requestData.location || finalLocation
             });
             console.log("MCP: Request broadcasted to Firestore");
         } catch (error) {
