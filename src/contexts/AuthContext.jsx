@@ -26,8 +26,9 @@ export function AuthProvider({ children }) {
 
             if (user) {
                 // Real-time listener for user profile
+                console.log("Auth: User authenticated, fetching profile...", user.uid);
                 const userRef = doc(db, "users", user.uid);
-                unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
+                unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
                         console.log("Auth: Snapshot update", userData?.bloodStock);
@@ -46,17 +47,56 @@ export function AuthProvider({ children }) {
 
                         setCurrentUser({ ...user, ...userData, isVerified: isAdminUser || userData.isVerified });
                     } else {
-                        // New user logic or fallback
+                        console.log("Auth: Profile missing in DB. Attempting self-healing...");
+                        // 1. Set temporary user state so app doesn't crash or logout
                         const isAdminUser = user.email === 'admin@gmail.com';
                         setCurrentUser({ ...user, isVerified: isAdminUser });
                         setUserRole(null);
+
+                        // 2. Automatically create the missing document
+                        try {
+                            await setDoc(userRef, {
+                                email: user.email,
+                                createdAt: new Date().toISOString(),
+                                role: null, // Will force redirection to RoleSelection
+                                isAvailable: true
+                            });
+                            console.log("Auth: Self-healing successful. User profile recreated.");
+                        } catch (createErr) {
+                            console.error("Auth: Failed to recreate user profile", createErr);
+                            // If this fails (e.g. permission), we already set currentUser above, 
+                            // so user is logged in but might be restricted.
+                        }
                     }
                     setLoading(false);
-                }, (error) => {
+                }, async (error) => {
                     console.error("Auth: Error listening to user profile", error);
+
+                    // FALLBACK: Even if DB fails, keep user logged in with basic auth info
+                    console.warn("Auth: Falling back to basic auth user due to DB error.");
+                    setCurrentUser({ ...user, isVerified: false, role: null });
+
+                    // ATTEMPT RECOVERY: If permission error (likely due to missing doc + strict rules)
+                    // Try to blindly Create/Write the document
+                    if (error.code === 'permission-denied') {
+                        console.log("Auth: Permission denied reading profile. Attempting to create it directly...");
+                        try {
+                            await setDoc(userRef, {
+                                email: user.email,
+                                createdAt: new Date().toISOString(),
+                                role: null,
+                                isAvailable: true
+                            });
+                            console.log("Auth: Self-healing request sent (Blind Write).");
+                        } catch (writeErr) {
+                            console.error("Auth: Blind write also failed.", writeErr);
+                        }
+                    }
+
                     setLoading(false);
                 });
             } else {
+                console.log("Auth: No user detected");
                 setCurrentUser(null);
                 setUserRole(null);
                 setLoading(false);

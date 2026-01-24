@@ -12,6 +12,8 @@ import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, query, where, getDocs, onSnapshot, doc, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
 import { Card } from '../components/Card';
+import pecLogo from '../public/pec-logo.png';
+import yrcLogo from '../public/yrclogo.png';
 
 
 export default function LandingPage() {
@@ -169,10 +171,10 @@ export default function LandingPage() {
                         </span>
                         Live: Emergency Blood Network Active
                     </motion.div>
-                    <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+                    <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white">
                         Admin Operations Console
                     </h1>
-                    <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                    <p className="text-xl text-gray-400 max-w-2xl mx-auto">
                         Manage network emergencies and blood supply requests.
                     </p>
 
@@ -186,24 +188,24 @@ export default function LandingPage() {
                             Broadcast Request
                         </Button>
 
-                        <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="flex bg-gray-900 p-1 rounded-lg border border-gray-800 shadow-sm">
                             <button
                                 onClick={() => setActiveTab('responses')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'responses' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'responses' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}
                             >
                                 <Activity className="h-4 w-4" />
                                 My Broadcasts
                             </button>
                             <button
                                 onClick={() => setActiveTab('incoming')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'incoming' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'incoming' ? 'bg-red-900/20 text-red-400 shadow-sm' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}
                             >
                                 <HeartPulse className="h-4 w-4" />
                                 Patient Requests
                             </button>
                             <button
                                 onClick={() => setActiveTab('stock')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'stock' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'stock' ? 'bg-blue-900/20 text-blue-400 shadow-sm' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}
                             >
                                 <Database className="h-4 w-4" />
                                 Blood Stock
@@ -220,13 +222,13 @@ export default function LandingPage() {
                 </section>
 
                 <div className="max-w-7xl mx-auto px-4" id="responses-section">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">
+                    <h2 className="text-2xl font-bold text-white mb-6 border-b border-gray-800 pb-2">
                         {activeTab === 'responses' ? 'Active Broadcasts & Responses' : activeTab === 'incoming' ? 'Incoming Patient Requests' : 'Blood Stock Inventory'}
                     </h2>
 
                     {activeTab === 'responses' ? (
                         adminRequests.length === 0 ? (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                            <div className="text-center py-12 bg-gray-900 rounded-xl border-2 border-dashed border-gray-800">
                                 <p className="text-gray-500">No active emergency broadcasts. Network is stable.</p>
                             </div>
                         ) : (
@@ -238,7 +240,7 @@ export default function LandingPage() {
                         )
                     ) : activeTab === 'incoming' ? (
                         incomingRequests.length === 0 ? (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                            <div className="text-center py-12 bg-gray-900 rounded-xl border-2 border-dashed border-gray-800">
                                 <p className="text-gray-500">No pending patient requests found.</p>
                             </div>
                         ) : (
@@ -342,6 +344,11 @@ export default function LandingPage() {
 
     return (
         <div className="flex flex-col gap-8 md:gap-16 pb-16 relative">
+            {/* Logos */}
+            <div className="flex justify-center items-center w-full px-4 py-4 gap-8 md:gap-12">
+                <img src={pecLogo} alt="PEC Logo" className="h-12 md:h-24 object-contain" />
+                <img src={yrcLogo} alt="YRC Logo" className="h-12 md:h-24 object-contain" />
+            </div>
             {/* Hero Section */}
             <section className="text-center space-y-6 md:space-y-8 pt-6 md:pt-10">
                 <motion.div
@@ -505,11 +512,11 @@ function AdminRequestCard({ req, navigate, completeRequest, fetchAdminRequests }
                     )}
                 </div>
             ) : (
-                <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-200 text-center">
+                <div className="bg-gray-900 p-4 rounded-lg border border-dashed border-gray-800 text-center">
                     <div className="animate-pulse flex justify-center mb-2">
-                        <div className="h-2 w-2 bg-gray-400 rounded-full mx-0.5"></div>
-                        <div className="h-2 w-2 bg-gray-400 rounded-full mx-0.5 animation-delay-200"></div>
-                        <div className="h-2 w-2 bg-gray-400 rounded-full mx-0.5 animation-delay-400"></div>
+                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5"></div>
+                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-200"></div>
+                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-400"></div>
                     </div>
                     <span className="text-sm text-gray-500">Waiting for donors to respond...</span>
                 </div>

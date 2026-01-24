@@ -24,6 +24,8 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 function ProtectedRoute({ children, allowedRoles = [] }) {
     const { currentUser, userRole, loading, isRoleSwitching } = useAuth();
 
+    console.log("ProtectedRoute: Checking access", { currentUser: !!currentUser, userRole, allowedRoles, loading });
+
     if (loading || isRoleSwitching) {
         return (
             <div className="min-h-[50vh] flex flex-col justify-center items-center gap-4">
