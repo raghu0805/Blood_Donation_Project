@@ -12,8 +12,7 @@ import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, query, where, getDocs, onSnapshot, doc, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
 import { Card } from '../components/Card';
-import pecLogo from '../public/pec-logo.png';
-import yrcLogo from '../public/yrclogo.png';
+
 
 
 export default function LandingPage() {
@@ -344,11 +343,7 @@ export default function LandingPage() {
 
     return (
         <div className="flex flex-col gap-8 md:gap-16 pb-16 relative">
-            {/* Logos */}
-            <div className="flex justify-center items-center w-full px-4 py-4 gap-8 md:gap-12">
-                <img src={pecLogo} alt="PEC Logo" className="h-12 md:h-24 object-contain" />
-                <img src={yrcLogo} alt="YRC Logo" className="h-12 md:h-24 object-contain" />
-            </div>
+
             {/* Hero Section */}
             <section className="text-center space-y-6 md:space-y-8 pt-6 md:pt-10">
                 <motion.div
@@ -367,7 +362,7 @@ export default function LandingPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="text-4xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white px-2"
+                    className="text-4xl md:text-7xl font-extrabold tracking-tight text-white dark:text-white px-2"
                 >
                     {userRole === 'admin' ? "Admin Console" : "Your blood can"} <br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-900">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
@@ -19,7 +19,8 @@ export default function AuthPage() {
         password: '',
         name: '',
         bloodGroup: '',
-        lastDonated: ''
+        lastDonated: '',
+        rollNo: ''
     });
 
     const handleGoogleLogin = async () => {
@@ -64,12 +65,24 @@ export default function AuthPage() {
                 }
 
             } else {
+                // Check for unique Roll No
+                if (formData.rollNo) {
+                    const q = query(collection(db, "users"), where("rollNo", "==", formData.rollNo));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        alert("Roll No already exists. Please use a different Roll No.");
+                        setIsLoading(false);
+                        return;
+                    }
+                }
+
                 const role = formData.bloodGroup ? 'donor' : 'patient';
                 await signupWithEmail(formData.email, formData.password, {
                     name: formData.name,
                     bloodGroup: formData.bloodGroup,
                     lastDonated: formData.lastDonated || null,
-                    role: role
+                    role: role,
+                    rollNo: formData.rollNo
                 });
 
                 // Navigate based on the just-created role
@@ -181,6 +194,24 @@ export default function AuthPage() {
                                 </div>
                             </div>
                         )}
+
+                        {/* Common Fields */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Roll No</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <User className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+
+                                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm border p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                    placeholder="Roll No"
+                                    value={formData.rollNo}
+                                    onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })}
+                                />
+                            </div>
+                        </div>
 
                         {/* Common Fields */}
                         <div>
