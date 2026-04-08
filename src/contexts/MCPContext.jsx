@@ -240,7 +240,7 @@ export function MCPProvider({ children }) {
                 }
             }
 
-            await addDoc(collection(db, 'requests'), {
+            const docRef = await addDoc(collection(db, 'requests'), {
                 ...requestData,
                 patientId: currentUser.uid,
                 patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
@@ -249,7 +249,34 @@ export function MCPProvider({ children }) {
                 createdAt: serverTimestamp(),
                 location: requestData.location || finalLocation
             });
-            console.log("MCP: Request broadcasted to Firestore");
+            
+            console.log("MCP: Request broadcasted to Firestore", docRef.id);
+
+            // 🟢 STEP 2: Trigger n8n Automation (WhatsApp/Twilio Alerts)
+            // This sends the request data to n8n, which filters donors and sends Twilio alerts.
+            try {
+                const n8nWebhookUrl = "https://n8n-zazi.onrender.com/webhook-test/blood-alert"; // 👈 UPDATED WITH REAL N8N URL
+                
+                const alertPayload = {
+                    requestId: docRef.id,
+                    bloodGroup: requestData.bloodGroup,
+                    urgency: requestData.urgency || "Emergency",
+                    patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
+                    location: requestData.location || finalLocation,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Non-blocking fetch to ensure UI isn't delayed by webhook response
+                fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(alertPayload)
+                }).catch(err => console.error("MCP: N8N Webhook failed", err));
+                
+                console.log("MCP: n8n Automation trigger sent");
+            } catch (webhookErr) {
+                console.warn("MCP: External automation trigger error", webhookErr);
+            }
         } catch (error) {
             console.error("MCP: Error broadcasting request", error);
             throw error;
