@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 
 import { MCPProvider } from './contexts/MCPContext';
@@ -23,6 +24,7 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 // Protected Route Component
 function ProtectedRoute({ children, allowedRoles = [] }) {
     const { currentUser, userRole, loading, isRoleSwitching } = useAuth();
+    const location = useLocation();
 
     console.log("ProtectedRoute: Checking access", { currentUser: !!currentUser, userRole, allowedRoles, loading });
 
@@ -48,6 +50,21 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
         return <Navigate to="/" />;
     }
 
+    // Profile Completion Enforcement
+    const isProfileIncomplete = () => {
+        if (!currentUser) return true;
+        if (userRole === 'admin') {
+            return !currentUser.displayName || !currentUser.whatsappNumber;
+        }
+        return !currentUser.age || !currentUser.weight || !currentUser.bloodGroup || !currentUser.whatsappNumber || !currentUser.gender;
+    };
+
+    const isAllowedPath = ['/profile', '/role-selection'].includes(location.pathname);
+    if (!isAllowedPath && isProfileIncomplete()) {
+        alert("Action Required: Please complete your profile first.");
+        return <Navigate to="/profile" />;
+    }
+
     return children;
 }
 
@@ -65,13 +82,13 @@ function App() {
                                     <Route path="role-selection" element={<RoleSelection />} />
 
                                     <Route path="donor-dashboard" element={
-                                        <ProtectedRoute allowedRoles={['donor']}>
+                                        <ProtectedRoute>
                                             <DonorDashboard />
                                         </ProtectedRoute>
                                     } />
 
                                     <Route path="patient-dashboard" element={
-                                        <ProtectedRoute allowedRoles={['patient']}>
+                                        <ProtectedRoute>
                                             <PatientDashboard />
                                         </ProtectedRoute>
                                     } />

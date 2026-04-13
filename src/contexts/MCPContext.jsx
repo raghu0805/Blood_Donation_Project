@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { calculateDistance } from '../lib/utils';
+import { calculateDistance, calculateDonationEligibility } from '../lib/utils';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, runTransaction, increment, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, runTransaction, increment, setDoc, getDocs } from 'firebase/firestore';
 
 const MCPContext = createContext({});
 
@@ -51,23 +51,15 @@ export function MCPProvider({ children }) {
         let unsubscribeActiveRequests;
         let unsubscribeMyRequests;
 
-        if (userRole === 'patient') {
-
-
-            // 1. Listener: Active Donors (Existing)
-            const qDonors = query(
-                collection(db, 'users'),
-                where('role', '==', 'donor')
-                // where('isAvailable', '==', true),
-                // where('isVerified', '==', true) // Temporarily disabled for easier testing
-            );
+        // MULTI-ROLE ARCHITECTURE: Everyone can see donors and requests
+        if (currentUser) {
+            // 1. Listener: Active Potential Donors (Every user with a blood group)
+            const qDonors = query(collection(db, 'users'));
 
             unsubscribeDonors = onSnapshot(qDonors, (snapshot) => {
                 const donors = snapshot.docs
                     .map(doc => {
                         const data = doc.data();
-
-                        // Calculate REAL distance if we have coords, else fallback
                         let distanceDisplay = "Unknown";
                         if (userLocation && data.location) {
                             const dist = calculateDistance(
@@ -76,68 +68,31 @@ export function MCPProvider({ children }) {
                             );
                             distanceDisplay = dist ? `${dist} km` : "Unknown";
                         } else {
-                            // Use deterministic mock if real location fails for demo
                             const pseudoRandom = doc.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                             const mockDist = (pseudoRandom % 100 / 10).toFixed(1);
                             distanceDisplay = `${Math.max(0.5, mockDist)} km (Est)`;
                         }
 
-                        return {
-                            id: doc.id,
-                            ...data,
-                            distance: distanceDisplay
-                        };
+                        return { id: doc.id, ...data, distance: distanceDisplay };
                     })
-                    // Filter out myself, incomplete profiles, and incompatible donors (cooldown)
                     .filter(d => {
-                        // 1. Self check
                         if (d.id === currentUser.uid) return false;
-                        // 2. Data integrity check
                         if (!d.bloodGroup) return false;
-
-                        // 3. Gender-specific Cooldown Check (Men: 90, Women: 120)
-                        if (d.lastDonated) {
-                            const last = new Date(d.lastDonated.seconds ? d.lastDonated.seconds * 1000 : d.lastDonated);
-                            const diffTime = Math.abs(new Date() - last);
-                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                            const cooldown = (d.gender && d.gender.toLowerCase() === 'female') ? 120 : 90;
-                            if (diffDays < cooldown) return false;
-                        }
-
-                        return true;
+                        const { eligible } = calculateDonationEligibility(d.lastDonated, d.gender);
+                        return eligible;
                     });
                 setAvailableDonors(donors);
             });
 
-            // 2. Listener: My Sent Requests (New)
-            const qMyReqs = query(
-                collection(db, 'requests'),
-                where('patientId', '==', currentUser.uid)
-            );
-
-            unsubscribeMyRequests = onSnapshot(qMyReqs, (snapshot) => {
-                const reqs = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                // Sort by newest first locally since we didn't add index for orderBy
-                reqs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-                setMyRequests(reqs);
-            });
-        }
-
-        if (userRole === 'donor') {
-            // Listener: Requests (Pending or Accepted)
-            const q = query(
+            // 2. Listener: All Active Requests (Available for every potential donor)
+            const qActive = query(
                 collection(db, 'requests'),
                 where('status', 'in', ['pending', 'accepted'])
             );
 
-            unsubscribeActiveRequests = onSnapshot(q, (snapshot) => {
+            unsubscribeActiveRequests = onSnapshot(qActive, (snapshot) => {
                 const requests = snapshot.docs.map(doc => {
                     const data = doc.data();
-
-                    // Calculate Distance
                     let distanceDisplay = "Unknown";
                     if (userLocation && data.location) {
                         const dist = calculateDistance(
@@ -146,16 +101,22 @@ export function MCPProvider({ children }) {
                         );
                         distanceDisplay = dist ? `${dist} km` : "Unknown";
                     }
-
-                    return {
-                        id: doc.id,
-                        ...data,
-                        distance: distanceDisplay
-                    };
+                    return { id: doc.id, ...data, distance: distanceDisplay };
                 });
-                // Sort LIFO (Last In First Out) - Newest First
                 requests.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 setActiveRequests(requests);
+            });
+
+            // 3. Listener: My Sent Requests
+            const qMyReqs = query(
+                collection(db, 'requests'),
+                where('patientId', '==', currentUser.uid)
+            );
+
+            unsubscribeMyRequests = onSnapshot(qMyReqs, (snapshot) => {
+                const reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                reqs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                setMyRequests(reqs);
             });
         }
 
@@ -253,27 +214,61 @@ export function MCPProvider({ children }) {
             console.log("MCP: Request broadcasted to Firestore", docRef.id);
 
             // 🟢 STEP 2: Trigger n8n Automation (WhatsApp/Twilio Alerts)
-            // This sends the request data to n8n, which filters donors and sends Twilio alerts.
             try {
-                const n8nWebhookUrl = "https://n8n-zazi.onrender.com/webhook-test/blood-alert"; // 👈 UPDATED WITH REAL N8N URL
+                // Fetch ALL donors from the 'donars' collection for n8n automation
+                const donorsSnap = await getDocs(collection(db, 'donars'));
+                
+                // AUTO-HEAL: Fix eligibility dynamically if the timer (90/120 days) has passed
+                const allDonors = donorsSnap.docs.map(d => {
+                    const data = d.data();
+                    const { eligible } = calculateDonationEligibility(data.lastDonated, data.gender);
+                    
+                    // If math says they are eligible now, but DB says false, we fix the DB!
+                    if (eligible && data.eligibility === false) {
+                        console.log(`MCP: Auto-healing eligibility for donor ${d.id}`);
+                        
+                        // Fire off background updates to fix the database docs
+                        updateDoc(doc(db, 'donars', d.id), {
+                            eligibility: true,
+                            isAvailable: true,
+                            updatedAt: serverTimestamp()
+                        }).catch(err => console.error("Auto-heal donars err:", err));
+                        
+                        updateDoc(doc(db, 'users', d.id), {
+                            isAvailable: true
+                        }).catch(err => console.error("Auto-heal users err:", err));
+                        
+                        // Fix the local payload object so n8n gets the exact correct data right now
+                        data.eligibility = true;
+                        data.isAvailable = true;
+                    }
+
+                    return { id: d.id, ...data };
+                });
+
+                const n8nWebhookUrl = "https://n8n-zazi.onrender.com/webhook/blood-alert"; // 👈 PRODUCTION URL
                 
                 const alertPayload = {
                     requestId: docRef.id,
                     bloodGroup: requestData.bloodGroup,
                     urgency: requestData.urgency || "Emergency",
                     patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
+                    patientContact: currentUser.whatsappNumber || "Not Shared",
                     location: requestData.location || finalLocation,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    donorsPool: allDonors
                 };
 
-                // Non-blocking fetch to ensure UI isn't delayed by webhook response
+                // Trigger n8n with CORS bypass mode
                 fetch(n8nWebhookUrl, {
                     method: 'POST',
+                    mode: 'no-cors', // 👈 CORS BYPASS
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(alertPayload)
-                }).catch(err => console.error("MCP: N8N Webhook failed", err));
+                })
+                .then(() => console.log("MCP: Webhook trigger successfully sent to n8n"))
+                .catch(err => console.error("MCP: N8N Webhook failed", err));
                 
-                console.log("MCP: n8n Automation trigger sent");
             } catch (webhookErr) {
                 console.warn("MCP: External automation trigger error", webhookErr);
             }
@@ -380,10 +375,20 @@ export function MCPProvider({ children }) {
                 });
 
                 // Update Donor Stats
-                transaction.update(donorRef, {
+                const donorUpdate = {
                     livesSaved: increment(1),
                     lastDonated: serverTimestamp(),
                     isAvailable: false // Auto-mark unavailable
+                };
+                transaction.update(donorRef, donorUpdate);
+
+                // Update Shadow 'donars' collection for n8n
+                const shadowDonorRef = doc(db, "donars", donorId);
+                transaction.update(shadowDonorRef, {
+                    lastDonated: serverTimestamp(),
+                    isAvailable: false,
+                    eligibility: false,
+                    updatedAt: serverTimestamp()
                 });
 
                 // Update Patient Stats (Network Support)
@@ -528,8 +533,31 @@ export function MCPProvider({ children }) {
     const updateUserProfile = async (data) => {
         if (!currentUser) return;
         try {
-            // Use setDoc with merge: true to handle both update and create cases
+            // 1. Update primary 'users' collection
             await setDoc(doc(db, 'users', currentUser.uid), data, { merge: true });
+
+            // 2. Multi-role Sync: Every user is added to 'donars' registry for n8n/automation
+            const fullData = { ...currentUser, ...data };
+            const { eligible } = calculateDonationEligibility(fullData.lastDonated, fullData.gender);
+            
+            const donorEntry = {
+                name: fullData.displayName || fullData.name || "Anonymous",
+                bloodGroup: fullData.bloodGroup || "Unknown",
+                phone: fullData.whatsappNumber || "Not Shared",
+                isAvailable: fullData.isAvailable ?? true,
+                eligibility: eligible,
+                lastDonated: fullData.lastDonated || null,
+                gender: fullData.gender || "Not Specified",
+                age: fullData.age || null,
+                weight: fullData.weight || null,
+                rollNo: fullData.rollNo || "Not Specified",
+                location: fullData.location || userLocation || null,
+                updatedAt: serverTimestamp()
+            };
+
+            await setDoc(doc(db, 'donars', currentUser.uid), donorEntry, { merge: true });
+            console.log("MCP: Registry updated for multi-role user");
+
             console.log("MCP: User profile updated");
         } catch (error) {
             console.error("MCP: Error updating profile", error);

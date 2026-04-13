@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    apiKey: "AIzaSyBa_pPHgQvYJQPiyOBYs-YAItaPQG_uyos",
+    authDomain: "blood-donation-c34f0.firebaseapp.com",
+    projectId: "blood-donation-c34f0",
+    storageBucket: "blood-donation-c34f0.firebasestorage.app",
+    messagingSenderId: "1098245273799",
+    appId: "1:1098245273799:web:4a4fb73e47b4699bf766e2",
+    measurementId: "G-BD0S0ZSYF6"
 };
 
 const app = initializeApp(firebaseConfig);

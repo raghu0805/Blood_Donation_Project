@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { calculateDonationEligibility } from '../lib/utils';
 
 const AuthContext = createContext({});
 
@@ -31,15 +32,28 @@ export function AuthProvider({ children }) {
                 unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
-                        console.log("Auth: Snapshot update", userData?.bloodStock);
+                        
+                        // Auto-Sync to 'donars' registry for n8n/Automation (Every user is a potential donor)
+                        const { eligible } = calculateDonationEligibility(userData.lastDonated, userData.gender);
+                        const donorData = {
+                            name: userData.displayName || userData.name || user.email.split('@')[0],
+                            bloodGroup: userData.bloodGroup || "Pending",
+                            phone: userData.whatsappNumber || "Not Linked",
+                            eligibility: eligible,
+                            isAvailable: userData.isAvailable ?? true,
+                            lastDonated: userData.lastDonated || null,
+                            gender: userData.gender || null,
+                            age: userData.age || null,
+                            weight: userData.weight || null,
+                            rollNo: userData.rollNo || "Not Linked",
+                            location: userData.location || null,
+                            updatedAt: new Date().toISOString()
+                        };
+                        
+                        setDoc(doc(db, 'donars', user.uid), donorData, { merge: true })
+                            .catch(e => console.error("Auth: Registry sync failed", e));
 
-
-                        // Only update if we are NOT in the middle of a deliberate role switch
-                        // This prevents race conditions where DB update comes before we navigate
-                        if (!isRoleSwitching) {
-                            setUserRole(userData.role);
-                        }
-
+                        setUserRole(userData.role || 'user');
                         setCurrentUser({ ...user, ...userData });
                     } else {
                         console.log("Auth: Profile missing in DB. Attempting self-healing...");

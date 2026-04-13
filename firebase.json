@@ -7,7 +7,6 @@
         "rules": "storage.rules"
     },
     "hosting": {
-        "site": "principal-yen-460311-a9",
         "public": "dist",
         "ignore": [
             "firebase.json",

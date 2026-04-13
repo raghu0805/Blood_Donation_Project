@@ -51,14 +51,11 @@ export default function AuthPage() {
                     const userData = userDoc.data();
                     const role = userData.role;
 
-                    if (role === 'admin') {
-                        navigate('/admin'); // Admin Landing Page
-                    } else if (role === 'donor') {
-                        navigate('/donor-dashboard');
-                    } else if (role === 'patient') {
-                        navigate('/patient-dashboard');
-                    } else {
+                    // ALWAYS redirect to profile after login/signup (Profile restriction will handle the rest)
+                    if (!role) {
                         navigate('/role-selection');
+                    } else {
+                        navigate('/profile');
                     }
                 } else {
                     navigate('/role-selection');
@@ -85,9 +82,8 @@ export default function AuthPage() {
                     rollNo: formData.rollNo
                 });
 
-                // Navigate based on the just-created role
-                if (role === 'donor') navigate('/donor-dashboard');
-                else navigate('/patient-dashboard');
+                // Navigate to profile flow
+                navigate('/profile');
             }
         } catch (error) {
             console.error(error);

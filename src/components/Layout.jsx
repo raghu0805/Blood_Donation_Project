@@ -52,13 +52,13 @@ export default function Layout() {
             <nav className="bg-navy-900/80 backdrop-blur-lg border-b border-navy-700 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
-                        <div className="flex items-center">
+                        <div className="flex items-center overflow-hidden">
                             <Link to="/" className="flex items-center gap-2">
-                                <img src={logo} alt="LifeLink Logo" className="h-12 w-auto object-contain" />
-                                <span className="text-xl font-bold text-white hidden sm:block">LifeLink</span>
-                                <div className="h-6 w-px bg-gray-700 mx-2"></div>
-                                <img src={pecLogo} alt="PEC Logo" className="h-10 object-contain" />
-                                <img src={yrcLogo} alt="YRC Logo" className="h-10 object-contain" />
+                                <img src={logo} alt="LifeLink Logo" className="h-10 sm:h-12 w-auto object-contain flex-shrink-0" />
+                                <span className="text-lg sm:text-xl font-bold text-white hidden sm:block">LifeLink</span>
+                                <div className="h-6 w-px bg-gray-700 mx-1 sm:mx-2 flex-shrink-0"></div>
+                                <img src={pecLogo} alt="PEC Logo" className="h-8 sm:h-10 object-contain flex-shrink-0 hidden xs:block sm:block" />
+                                <img src={yrcLogo} alt="YRC Logo" className="h-8 sm:h-10 object-contain flex-shrink-0 hidden xs:block sm:block" />
                             </Link>
                         </div>
 
@@ -138,7 +138,7 @@ export default function Layout() {
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
-                            className="fixed inset-0 top-16 z-40 bg-white md:hidden overflow-y-auto"
+                            className="fixed inset-0 top-16 z-40 bg-navy-900 md:hidden overflow-y-auto border-t border-navy-700"
                         >
                             <div className="px-4 py-6 space-y-6">
                                 {currentUser ? (
@@ -166,16 +166,16 @@ export default function Layout() {
                                                 <>
                                                     <button
                                                         onClick={() => { handleRoleSwitch('donor'); setIsMobileMenuOpen(false); }}
-                                                        className="w-full flex items-center justify-between p-4 rounded-xl bg-white border-2 border-gray-100 active:scale-98 transition-transform"
+                                                        className="w-full flex items-center justify-between p-4 rounded-xl bg-navy-800 border-2 border-navy-700 active:scale-98 transition-transform group hover:border-[#e60026]"
                                                     >
-                                                        <span className="font-bold text-gray-700">Donate Blood</span>
+                                                        <span className="font-bold text-gray-200 group-hover:text-white">Donate Blood</span>
                                                         <HeartPulse className="h-5 w-5 text-red-500" />
                                                     </button>
                                                     <button
                                                         onClick={() => { handleRoleSwitch('patient'); setIsMobileMenuOpen(false); }}
-                                                        className="w-full flex items-center justify-between p-4 rounded-xl bg-white border-2 border-gray-100 active:scale-98 transition-transform"
+                                                        className="w-full flex items-center justify-between p-4 rounded-xl bg-navy-800 border-2 border-navy-700 active:scale-98 transition-transform group hover:border-blue-500"
                                                     >
-                                                        <span className="font-bold text-gray-700">Request Blood</span>
+                                                        <span className="font-bold text-gray-200 group-hover:text-white">Request Blood</span>
                                                         <Activity className="h-5 w-5 text-blue-500" />
                                                     </button>
                                                 </>
@@ -183,13 +183,13 @@ export default function Layout() {
                                             <Link
                                                 to="/profile"
                                                 onClick={() => setIsMobileMenuOpen(false)}
-                                                className="block w-full text-left p-4 rounded-xl font-bold text-gray-700 hover:bg-gray-50 border-2 border-transparent"
+                                                className="block w-full text-left p-4 rounded-xl font-bold text-gray-200 bg-navy-800 hover:bg-navy-700 border-2 border-transparent transition-colors"
                                             >
                                                 My Profile
                                             </Link>
                                             <button
                                                 onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
-                                                className="w-full text-left p-4 rounded-xl font-bold text-red-600 bg-red-50 active:bg-red-100 transition-colors"
+                                                className="w-full text-left p-4 rounded-xl font-bold text-red-500 bg-red-500/10 active:bg-red-500/20 transition-colors"
                                             >
                                                 Log Out
                                             </button>
@@ -205,14 +205,14 @@ export default function Layout() {
                                         <Link
                                             to="/auth"
                                             onClick={() => setIsMobileMenuOpen(false)}
-                                            className="block w-full py-4 rounded-xl text-center text-lg font-bold text-white bg-red-600 shadow-lg shadow-red-200"
+                                            className="block w-full py-4 rounded-xl text-center text-lg font-bold text-white bg-[#e60026] shadow-lg shadow-red-900/20"
                                         >
                                             Join Now
                                         </Link>
                                         <Link
                                             to="/auth"
                                             onClick={() => setIsMobileMenuOpen(false)}
-                                            className="block w-full py-4 rounded-xl text-center text-lg font-bold text-gray-700 bg-white border-2 border-gray-200"
+                                            className="block w-full py-4 rounded-xl text-center text-lg font-bold text-gray-300 bg-navy-800 border border-navy-700 hover:bg-navy-700"
                                         >
                                             Log In
                                         </Link>

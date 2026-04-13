@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateDonationEligibility, compressImage } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
@@ -14,6 +15,7 @@ import { BackButton } from '../components/BackButton';
 export default function ProfilePage() {
     const { currentUser, userRole } = useAuth();
     const { updateUserProfile } = useMCP();
+    const navigate = useNavigate();
 
     // UI State
     const [isEditing, setIsEditing] = useState(false);
@@ -75,6 +77,16 @@ export default function ProfilePage() {
                 photoURL: currentUser.photoURL || '',
                 bloodStock: currentUser.bloodStock || {}
             });
+            
+            // Auto open edit mode if profile is incomplete
+            if (userRole === 'admin') {
+                if (!currentUser.displayName || !currentUser.whatsappNumber) setIsEditing(true);
+            } else {
+                if (!currentUser.bloodGroup || !currentUser.gender || !currentUser.age || !currentUser.weight || !currentUser.whatsappNumber) {
+                    setIsEditing(true);
+                }
+            }
+
             fetchStats();
         }
     }, [currentUser, userRole]);
@@ -203,6 +215,9 @@ export default function ProfilePage() {
             await updateUserProfile(updateData);
             setIsEditing(false);
             alert("Profile Updated!");
+            
+            // Redirect to landing page after profile is successfully complete
+            navigate('/');
         } catch (err) {
             console.error(err);
             alert(`Failed to update profile: ${err.message || 'Unknown Error'}`);
@@ -402,9 +417,33 @@ export default function ProfilePage() {
                                         )}
                                     </div>
 
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mt-4">
                                         {currentUser?.whatsappNumber && (
-                                            <p className="text-sm text-gray-500">💬 {currentUser.whatsappNumber}</p>
+                                            <>
+                                                <p className="text-sm text-gray-400 font-medium bg-navy-800 px-3 py-1 rounded-full border border-navy-700">💬 {currentUser.whatsappNumber}</p>
+                                                {currentUser?.whatsappVerified ? (
+                                                    <span className="inline-flex items-center px-4 py-1.5 bg-green-900/50 text-green-500 border border-green-500/50 text-xs font-black rounded-full uppercase tracking-widest cursor-default">
+                                                        ✓ Verified
+                                                    </span>
+                                                ) : (
+                                                    <a 
+                                                        href="https://api.whatsapp.com/send/?phone=%2B14155238886&text=join+rain-additional&type=phone_number&app_absent=0" 
+                                                        target="_blank" 
+                                                        rel="noreferrer"
+                                                        onClick={() => {
+                                                            try {
+                                                                // Optimistically mark as verified upon clicking the activation link
+                                                                updateUserProfile({ whatsappVerified: true });
+                                                            } catch(err) {
+                                                                console.error("Failed to update status", err);
+                                                            }
+                                                        }}
+                                                        className="inline-flex items-center px-4 py-1.5 bg-[#25D366] text-white text-xs font-black rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(37,211,102,0.4)] hover:scale-105 transition-transform"
+                                                    >
+                                                        ✓ Verify WhatsApp
+                                                    </a>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>

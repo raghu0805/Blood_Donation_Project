@@ -16,9 +16,8 @@ export default function RoleSelection() {
         setIsSelecting(true);
         try {
             await assignRole(role);
-            // Force navigate based on selection
-            if (role === 'donor') navigate('/donor-dashboard');
-            else navigate('/patient-dashboard');
+            // Force navigate to complete profile
+            navigate('/profile');
         } catch (error) {
             console.error("Failed to assign role", error);
             setIsSelecting(false);
