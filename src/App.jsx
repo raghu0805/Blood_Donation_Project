@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
+import AboutUs from './pages/About';
 import AuthPage from './pages/AuthPage';
 import RoleSelection from './pages/RoleSelection';
 import DonorDashboard from './pages/DonorDashboard';
@@ -79,6 +80,7 @@ function App() {
                                 <Route path="/" element={<Layout />}>
                                     <Route index element={<LandingPage />} />
                                     <Route path="auth" element={<AuthPage />} />
+                                    <Route path="about" element={<AboutUs />} />
                                     <Route path="role-selection" element={<RoleSelection />} />
 
                                     <Route path="donor-dashboard" element={

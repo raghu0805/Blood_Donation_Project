@@ -94,17 +94,18 @@ export default function TrackingPage() {
     };
 
     return (
-        <div className="h-[calc(100dvh-4rem)] flex flex-col relative">
+        <div className="h-[calc(100dvh-4rem)] flex flex-col relative" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
             {/* Header Overlay */}
             <div className="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-start pointer-events-none">
-                <Button onClick={() => navigate(-1)} className="pointer-events-auto shadow-lg bg-white text-gray-800 hover:bg-gray-100 rounded-full h-10 w-10 p-0 flex items-center justify-center">
-                    <ArrowLeft className="h-6 w-6" />
+                <Button onClick={() => navigate(-1)} className="pointer-events-auto backdrop-blur-md text-gray-800 hover:scale-105 transition-transform rounded-full h-10 w-10 p-0 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.75)", border: "1px solid rgba(148,163,184,0.15)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
+                    <ArrowLeft className="h-6 w-6 text-red-600" />
                 </Button>
 
                 <div className="pointer-events-auto space-y-2 flex flex-col items-end">
                     <Button
                         onClick={handleNavigate}
-                        className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                        className="shadow-lg hover:scale-105 transition-transform flex items-center gap-2 rounded-2xl py-2 px-4 shadow-blue-200"
+                        style={{ background: "linear-gradient(135deg, #2563eb, #3b82f6)", border: "none", color: "white" }}
                         disabled={!targetLocation}
                     >
                         <Navigation className="h-4 w-4" />
@@ -113,7 +114,8 @@ export default function TrackingPage() {
 
                     <Button
                         onClick={handleToggleSharing}
-                        className={`shadow-lg flex items-center gap-2 ${sharingId ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' : 'bg-white text-gray-800 hover:bg-gray-100'}`}
+                        className={`shadow-lg flex items-center gap-2 hover:scale-105 transition-transform rounded-2xl py-2 px-4 ${sharingId ? 'animate-pulse text-white' : 'text-gray-800 backdrop-blur-md'}`}
+                        style={sharingId ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", border: "none" } : { background: "rgba(255,255,255,0.85)", border: "1px solid rgba(148,163,184,0.15)" }}
                     >
                         <MapPin className="h-4 w-4" />
                         {sharingId ? 'Stop Sharing' : 'Share My Live Location'}

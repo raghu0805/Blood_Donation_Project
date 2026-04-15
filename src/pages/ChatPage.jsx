@@ -111,10 +111,10 @@ export default function ChatPage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto h-[calc(100dvh-5rem)] md:h-[calc(100vh-6rem)] flex flex-col">
+        <div className="max-w-2xl mx-auto h-[calc(100dvh-5rem)] md:h-[calc(100vh-6rem)] flex flex-col mt-4" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)", borderRadius: "10px" }}>
             {/* Header */}
-            <Card className="mb-4 rounded-b-none border-b-0 flex-none z-10">
-                <div className="p-4 flex items-center gap-3 shadow-sm bg-white rounded-t-xl">
+            <Card className="mb-4 rounded-b-none border-b-0 flex-none z-10" style={{ background: "transparent", border: "none", boxShadow: "none" }}>
+                <div className="p-4 flex items-center gap-3 rounded-t-xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 4px 20px rgba(220,38,38,0.04)" }}>
                     <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
@@ -132,7 +132,7 @@ export default function ChatPage() {
             </Card>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 rounded-lg border border-gray-200 shadow-inner mb-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-4 mx-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(148,163,184,0.15)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)" }}>
                 {messages.length === 0 ? (
                     <div className="text-center text-gray-400 mt-10">
                         <p>No messages yet.</p>
@@ -143,12 +143,13 @@ export default function ChatPage() {
                         const isMe = msg.senderId === currentUser?.uid;
                         return (
                             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                <div
-                                    className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${isMe
-                                        ? 'bg-red-600 text-white rounded-br-none'
-                                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-sm'
-                                        }`}
-                                >
+                                    <div
+                                        className={`max-w-[75%] px-5 py-3 rounded-2xl text-sm ${isMe
+                                            ? 'text-white shadow-md'
+                                            : 'text-gray-800 shadow-sm'
+                                            }`}
+                                        style={isMe ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", borderBottomRightRadius: "4px" } : { background: "rgba(255,255,255,0.9)", border: "1px solid rgba(148,163,184,0.2)", borderBottomLeftRadius: "4px" }}
+                                    >
                                     {msg.type === 'location' && msg.coords ? (
                                         <a
                                             href={`https://www.google.com/maps?q=${msg.coords.lat},${msg.coords.lng}`}
@@ -174,7 +175,7 @@ export default function ChatPage() {
             </div>
 
             {/* Input Area */}
-            <div className="flex gap-2 p-2 bg-white rounded-xl border border-gray-200 shadow-lg">
+            <div className="flex gap-2 p-3 mx-2 mb-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", border: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
                 <Button
                     type="button"
                     variant="ghost"
@@ -185,14 +186,15 @@ export default function ChatPage() {
                     <MapPin className="h-5 w-5" />
                 </Button>
                 <form onSubmit={handleSend} className="flex-1 flex gap-2">
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-all"
-                    />
-                    <Button type="submit" disabled={!newMessage.trim()} className="rounded-lg aspect-square p-0 w-12 flex items-center justify-center">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Type a message..."
+                            className="flex-1 px-5 py-3 rounded-xl focus:outline-none transition-all text-gray-800"
+                            style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.2)", outline: "none" }}
+                        />
+                        <Button type="submit" disabled={!newMessage.trim()} className="rounded-xl aspect-square p-0 w-12 flex items-center justify-center transition-transform hover:scale-105" style={{ background: newMessage.trim() ? "linear-gradient(135deg, #dc2626, #ef4444)" : "#e2e8f0", color: newMessage.trim() ? "#fff" : "#94a3b8", border: "none" }}>
                         <Send className="h-5 w-5" />
                     </Button>
                 </form>
