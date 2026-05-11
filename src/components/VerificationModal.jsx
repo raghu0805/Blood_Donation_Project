@@ -134,10 +134,8 @@ export default function VerificationModal({ isOpen, onClose, role, request, targ
             }
 
             setStep(4);
-            setTimeout(() => {
-                onVerifySuccess(targetDonor.donorId);
-                onClose();
-            }, 2000);
+            // Trigger backend completion immediately without closing the modal
+            onVerifySuccess(targetDonor.donorId);
         } else {
             setError("Invalid Verification Code.");
         }
@@ -281,14 +279,28 @@ export default function VerificationModal({ isOpen, onClose, role, request, targ
                         )}
 
                         {step === 4 && (
-                            <div className="space-y-4 text-center py-6 animate-in zoom-in duration-300">
+                            <div className="space-y-5 text-center py-6 animate-in zoom-in duration-300">
                                 <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-200">
                                     <CheckCircle size={40} />
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-xl text-gray-800">Verification Successful!</h4>
-                                    <p className="text-sm text-gray-500 mt-2">Tokens matched. The donation has been marked as completed.</p>
+                                    <p className="text-sm text-gray-500 mt-2">Tokens matched. You have successfully verified the {isPatient ? 'Donor' : 'Patient'}.</p>
                                 </div>
+                                
+                                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mt-2 inline-flex flex-col items-center shadow-sm w-full">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-1">
+                                        Important: Share this code so the {isPatient ? 'Donor' : 'Patient'} can verify you
+                                    </span>
+                                    <span className="text-2xl font-black text-slate-800 tracking-widest">{myCode}</span>
+                                </div>
+
+                                <button
+                                    onClick={onClose}
+                                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-2xl transition-all mt-2"
+                                >
+                                    Done / Close
+                                </button>
                             </div>
                         )}
                     </div>
