@@ -106,3 +106,63 @@ export const canDonate = (donorBlood, patientBlood) => {
     // STRICT MATCHING (User Preference: Requested vs Donated must match)
     return donorBlood === patientBlood;
 };
+
+// Donor Priority Scoring for Pool Placement
+// Higher score = higher priority for confirmed pool
+export const calculateDonorPriority = (donor, requestLocation, userLocation) => {
+    let score = 0;
+
+    // 1. Distance Score (max 40 points) — closer = better
+    if (userLocation && donor.location) {
+        const dist = parseFloat(calculateDistance(
+            userLocation.lat, userLocation.lng,
+            donor.location.lat, donor.location.lng
+        ));
+        if (!isNaN(dist)) {
+            score += Math.max(0, 40 - dist * 2);
+        }
+    } else if (requestLocation && donor.location) {
+        const dist = parseFloat(calculateDistance(
+            requestLocation.lat, requestLocation.lng,
+            donor.location.lat, donor.location.lng
+        ));
+        if (!isNaN(dist)) {
+            score += Math.max(0, 40 - dist * 2);
+        }
+    }
+
+    // 2. Availability Score (max 20 points)
+    if (donor.isAvailable !== false) {
+        score += 20;
+    }
+
+    // 3. Last Donation Date Score (max 20 points) — longer ago = better
+    if (donor.lastDonated) {
+        const lastDate = new Date(donor.lastDonated.seconds ? donor.lastDonated.seconds * 1000 : donor.lastDonated);
+        const daysSince = Math.ceil((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        score += Math.min(20, Math.floor(daysSince / 5));
+    } else {
+        // Never donated = fully rested, max score
+        score += 20;
+    }
+
+    // 4. Response Time Score (max 20 points) — this is applied at accept-time
+    // Default full score; caller can adjust based on actual response delay
+    score += 20;
+
+    return Math.round(score);
+};
+
+// Format donor pool status for display
+export const getRequestStatusInfo = (status) => {
+    const statusMap = {
+        pending: { label: "Pending", color: "#d97706", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" },
+        partially_fulfilled: { label: "Partially Fulfilled", color: "#2563eb", bg: "rgba(37,99,235,0.08)", border: "rgba(37,99,235,0.2)" },
+        fulfilled: { label: "Fulfilled", color: "#16a34a", bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.2)" },
+        closed: { label: "Closed", color: "#64748b", bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.2)" },
+        completed: { label: "Completed", color: "#7c3aed", bg: "rgba(124,58,237,0.08)", border: "rgba(124,58,237,0.2)" },
+        accepted: { label: "Accepted", color: "#16a34a", bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.2)" },
+        ready_for_pickup: { label: "Reserved", color: "#9333ea", bg: "rgba(147,51,234,0.08)", border: "rgba(147,51,234,0.2)" }
+    };
+    return statusMap[status] || statusMap.pending;
+};

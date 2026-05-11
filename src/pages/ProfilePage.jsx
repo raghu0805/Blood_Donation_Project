@@ -10,6 +10,7 @@ import { Camera, User, Phone, Droplets, Calendar, Weight, ChevronRight, ArrowLef
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import LandingNavbar from '../components/LandingNavbar';
+import UserAvatar from '../components/UserAvatar';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -214,11 +215,12 @@ export default function ProfilePage() {
                         <div className="relative">
                             <div className="h-32 w-32 rounded-3xl overflow-hidden bg-navy-800 border-2 border-navy-700 shadow-inner flex items-center justify-center flex-none group-hover:border-[#e60026] transition-all duration-500 cursor-pointer transform hover:scale-105"
                                 onClick={() => document.getElementById('photo-upload-admin').click()}>
-                                {form.photoURL ? (
-                                    <img src={form.photoURL} alt="Profile" className="h-full w-full object-cover" />
-                                ) : (
-                                    <User className="h-16 w-16 text-gray-600 group-hover:text-[#e60026] transition-colors" />
-                                )}
+                                <UserAvatar 
+                                    photoURL={form.photoURL} 
+                                    name={form.fullName} 
+                                    className="h-full w-full"
+                                    textClassName="text-4xl"
+                                />
                                 {uploading && (
                                     <div className="absolute inset-0 bg-navy-900/80 flex items-center justify-center backdrop-blur-sm">
                                         <div className="animate-spin h-8 w-8 border-2 border-[#e60026] border-t-transparent rounded-full shadow-[0_0_15px_rgba(230,0,38,0.5)]"></div>
@@ -407,13 +409,12 @@ export default function ProfilePage() {
                     <motion.div variants={fadeUp} custom={3} className="flex justify-center">
                         <div className="relative">
                             <div className="h-24 w-24 rounded-3xl overflow-hidden shadow-lg" style={{ border: "2px solid rgba(220,38,38,0.2)" }}>
-                                {form.photoURL ? (
-                                    <img src={form.photoURL} alt="avatar" className="h-full w-full object-cover" />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(220,38,38,0.08), rgba(212,160,23,0.08))" }}>
-                                        <User size={36} className="text-slate-300" />
-                                    </div>
-                                )}
+                                <UserAvatar 
+                                    photoURL={form.photoURL} 
+                                    name={form.fullName || currentUser?.email} 
+                                    className="h-full w-full"
+                                    textClassName="text-3xl"
+                                />
                                 {uploading && (
                                     <div className="absolute inset-0 bg-white/50 flex items-center justify-center backdrop-blur-[2px]">
                                         <div className="animate-spin h-6 w-6 border-2 border-[#e60026] border-t-transparent rounded-full shadow-[0_0_15px_rgba(230,0,38,0.5)]"></div>

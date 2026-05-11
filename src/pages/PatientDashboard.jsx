@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Bell, ChevronRight, Search, AlertCircle, Clock, CheckCircle, X, User, Heart, Droplets, Sparkles, MessageCircle } from "lucide-react";
+import { MapPin, Bell, ChevronRight, Search, AlertCircle, Clock, CheckCircle, X, User, Heart, Droplets, Sparkles, MessageCircle, Users, Minus, Plus, ShieldCheck, ArrowUpCircle, ArrowDownCircle, Activity } from "lucide-react";
 import LandingNavbar from "../components/LandingNavbar";
+import VerificationModal from "../components/VerificationModal";
 import { useAuth } from '../contexts/AuthContext';
 import { useMCP } from '../contexts/MCPContext';
+import { getRequestStatusInfo } from '../lib/utils';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -16,15 +18,18 @@ const fadeUp = {
 
 const statusStyle = {
   pending:  { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)", text: "#d97706", label: "Pending", icon: Clock },
+  partially_fulfilled: { bg: "rgba(37,99,235,0.08)", border: "rgba(37,99,235,0.2)", text: "#2563eb", label: "Partially Fulfilled", icon: Users },
+  fulfilled: { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.2)", text: "#16a34a", label: "Fulfilled", icon: ShieldCheck },
   matched:  { bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.2)",  text: "#16a34a", label: "Matched", icon: CheckCircle },
   rejected: { bg: "rgba(220,38,38,0.08)",  border: "rgba(220,38,38,0.2)",  text: "#dc2626", label: "No Match", icon: X },
   accepted: { bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.2)",  text: "#16a34a", label: "Accepted", icon: CheckCircle },
-  completed: { bg: "rgba(37,99,235,0.08)", border: "rgba(37,99,235,0.2)", text: "#2563eb", label: "Completed", icon: CheckCircle },
+  completed: { bg: "rgba(124,58,237,0.08)", border: "rgba(124,58,237,0.2)", text: "#7c3aed", label: "Completed", icon: CheckCircle },
+  closed: { bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.2)", text: "#64748b", label: "Closed", icon: X },
   ready_for_pickup: { bg: "rgba(147,51,234,0.08)", border: "rgba(147,51,234,0.2)", text: "#9333ea", label: "Reserved", icon: CheckCircle }
 };
 
 function RequestForm({ onClose, onSubmit }) {
-  const [form, setForm] = useState({ bloodGroup: "B+", urgency: "Emergency", hospital: "", notes: "" });
+  const [form, setForm] = useState({ bloodGroup: "B+", urgency: "Emergency", hospital: "", notes: "", unitsRequired: 1 });
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -62,6 +67,24 @@ function RequestForm({ onClose, onSubmit }) {
             </div>
           </div>
           <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Units Required</label>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.max(1, form.unitsRequired - 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                <Minus size={16} />
+              </button>
+              <div className="flex h-12 w-16 items-center justify-center rounded-2xl text-xl font-black text-gray-900"
+                style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                {form.unitsRequired}
+              </div>
+              <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.min(10, form.unitsRequired + 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                <Plus size={16} />
+              </button>
+              <span className="text-xs text-slate-400 ml-1">Max 10 units</span>
+            </div>
+          </div>
+          <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Hospital / Location</label>
             <input value={form.hospital} onChange={(e) => setForm({ ...form, hospital: e.target.value })}
               placeholder="e.g. Panimalar Medical Center"
@@ -71,12 +94,12 @@ function RequestForm({ onClose, onSubmit }) {
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Additional Notes</label>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Patient details, units needed..."
+              placeholder="Any additional patient details..."
               rows={2} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-gray-800 outline-none focus:border-red-400 resize-none"
               style={{ background: "#f8fafc" }} />
           </div>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={() => { onSubmit(form); }}
+          <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onTap={() => { onSubmit(form); }}
             className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white"
             style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 8px 24px rgba(220,38,38,0.25)" }}>
             <AlertCircle size={16} /> Submit Emergency Request
@@ -89,11 +112,13 @@ function RequestForm({ onClose, onSubmit }) {
 
 export default function PatientDashboard() {
   const { currentUser } = useAuth();
-  const { availableDonors = [], broadcastRequest, myRequests = [], completeRequest, requestGeminiAnalysis, geminiAnalysis } = useMCP();
+  const { availableDonors = [], broadcastRequest, myRequests = [], completeRequest, requestGeminiAnalysis, geminiAnalysis, moveDonorToPool } = useMCP();
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
   const [requestedDonors, setRequestedDonors] = useState([]);
+  const [expandedReqId, setExpandedReqId] = useState(null);
+  const [verifyTarget, setVerifyTarget] = useState(null);
   
   const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || "User";
 
@@ -121,13 +146,19 @@ export default function PatientDashboard() {
     }
   };
 
-  const handleComplete = async (requestId) => {
-      if (window.confirm("Confirm that you received the blood donation? This will update the donor's impact score.")) {
-          try {
-              await completeRequest(requestId);
-          } catch (err) {
-              alert("Error: " + err);
-          }
+  const handleComplete = async (requestId, donorId = null) => {
+      try {
+          await completeRequest(requestId, donorId);
+      } catch (err) {
+          alert("Error: " + err);
+      }
+  };
+
+  const handleMoveDonor = async (requestId, donorId, targetPool) => {
+      try {
+          await moveDonorToPool(requestId, donorId, targetPool);
+      } catch (err) {
+          alert("Failed to move donor: " + err.message);
       }
   };
 
@@ -162,9 +193,9 @@ export default function PatientDashboard() {
                 Welcome, {userName.split(" ")[0]}. Let's find the right donor fast.
               </motion.p>
             </div>
-            <motion.button variants={fadeUp} custom={3}
+            <motion.button type="button" variants={fadeUp} custom={3}
               whileHover={{ scale: 1.04, boxShadow: "0 8px 30px rgba(220,38,38,0.25)" }} whileTap={{ scale: 0.97 }}
-              onClick={() => setShowForm(true)}
+              onTap={() => setShowForm(true)}
               className="flex items-center gap-2.5 self-start rounded-2xl bg-red-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition-colors hover:bg-red-500 md:self-auto">
               <AlertCircle size={16} /> Initialize Request
             </motion.button>
@@ -196,51 +227,145 @@ export default function PatientDashboard() {
                   {myRequests.map((req, i) => {
                     const s = statusStyle[req.status] || statusStyle.pending;
                     const StatusIcon = s.icon;
+                    const confirmed = req.confirmedDonors || [];
+                    const reserve = req.reserveDonors || [];
+                    const unitsReq = req.unitsRequired || 1;
+                    const unitsFul = req.unitsFulfilled || 0;
+                    const poolProgress = Math.min(100, (confirmed.length / unitsReq) * 100);
                     return (
                       <motion.div key={req.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                        className="rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: s.bg, border: `1px solid ${s.border}` }}>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl font-black text-white shrink-0"
-                            style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
-                            {req.bloodGroup}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-gray-900 line-clamp-1">{req.bloodGroup} Blood Needed</p>
-                            <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none">
-                              <MapPin size={11} className="text-slate-400 shrink-0" />
-                              <span className="text-xs text-slate-400 truncate">{req.hospitalName || req.hospital || "General Area"}</span>
-                              <span className="text-slate-300">·</span>
-                              <span className="text-xs text-slate-400 shrink-0">
-                                {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Active'}
-                              </span>
+                        className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl font-black text-white shrink-0"
+                              style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
+                              {req.bloodGroup}
                             </div>
-                            {req.status === 'ready_for_pickup' && req.pickupCode && (
-                                <p className="text-xs font-bold text-purple-600 mt-1">Pickup Code: {req.pickupCode}</p>
+                            <div>
+                              <p className="text-sm font-bold text-gray-900 line-clamp-1">{req.bloodGroup} Blood — {unitsReq} Unit{unitsReq > 1 ? 's' : ''} Needed</p>
+                              <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none">
+                                <MapPin size={11} className="text-slate-400 shrink-0" />
+                                <span className="text-xs text-slate-400 truncate">{req.hospitalName || req.hospital || "General Area"}</span>
+                                <span className="text-slate-300">·</span>
+                                <span className="text-xs text-slate-400 shrink-0">
+                                  {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Active'}
+                                </span>
+                              </div>
+                              {req.status === 'ready_for_pickup' && req.pickupCode && (
+                                  <p className="text-xs font-bold text-purple-600 mt-1">Pickup Code: {req.pickupCode}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                             <span className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ color: s.text, background: `${s.border}50` }}>
+                               <StatusIcon size={12} /> {s.label}
+                             </span>
+                          </div>
+                        </div>
+
+                        {/* Donor Pool Progress */}
+                        {unitsReq > 0 && (
+                          <div className="space-y-1.5 mt-2">
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                              <span>Donor Pool: {confirmed.length}/{unitsReq} confirmed{reserve.length > 0 ? ` · ${reserve.length} reserve` : ''}</span>
+                              <span>{unitsFul}/{unitsReq} received</span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                              <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${poolProgress}%` }}
+                                transition={{ duration: 0.8, ease: "easeOut" }}
+                                style={{ background: poolProgress >= 100 ? "#16a34a" : "linear-gradient(90deg, #2563eb, #3b82f6)" }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expandable Donor Management Section */}
+                        <AnimatePresence>
+                            {expandedReqId === req.id && (confirmed.length > 0 || reserve.length > 0) && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                    <div className="mt-3 p-3 rounded-xl bg-white/60 border border-slate-200/60 space-y-3">
+                                        
+                                        {/* Confirmed / Reserve List */}
+                                        {confirmed.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Confirmed Donors ({confirmed.length}/{unitsReq})</p>
+                                                <div className="space-y-1.5">
+                                                    {confirmed.map(d => (
+                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-blue-50/50 border border-blue-100/50">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                                                                    {d.donorName?.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-gray-800">{d.donorName} <span className="text-[9px] font-normal text-slate-500 bg-white px-1.5 py-0.5 rounded-full border border-slate-200">Score: {d.priority || 0}</span></p>
+                                                                    <p className="text-[10px] text-slate-500">{d.status === 'completed' ? 'Donation Completed' : 'Pending Donation'}</p>
+                                                                </div>
+                                                            </div>
+                                                            {d.status !== 'completed' && (
+                                                                <button onClick={() => handleMoveDonor(req.id, d.donorId, 'reserve')}
+                                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-amber-600 transition-colors bg-white px-2 py-1 rounded border border-slate-200 shadow-sm hover:shadow">
+                                                                    <ArrowDownCircle size={12} /> Demote to Reserve
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {reserve.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 mt-3">Emergency / Reserve List ({reserve.length})</p>
+                                                <div className="space-y-1.5">
+                                                    {reserve.map(d => (
+                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 border border-amber-100/50">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-300 text-slate-600 text-[10px] font-bold">
+                                                                    {d.donorName?.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-gray-800">{d.donorName} <span className="text-[9px] font-normal text-slate-500 bg-white px-1.5 py-0.5 rounded-full border border-slate-200">Score: {d.priority || 0}</span></p>
+                                                                    <p className="text-[10px] text-slate-500">Standby Donor</p>
+                                                                </div>
+                                                            </div>
+                                                            <button onClick={() => handleMoveDonor(req.id, d.donorId, 'confirmed')}
+                                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition-colors bg-white px-2 py-1 rounded border border-blue-100 shadow-sm hover:shadow">
+                                                                <ArrowUpCircle size={12} /> Promote to Reserve
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Action Buttons */}
+                        {['accepted', 'partially_fulfilled', 'fulfilled', 'ready_for_pickup'].includes(req.status) && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+                            <div className="flex flex-wrap gap-2">
+                                <motion.button type="button" whileTap={{ scale: 0.95 }} onTap={() => navigate(`/chat/${req.id}`)}
+                                  className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white bg-green-600 shadow flex items-center gap-1.5 transition-colors hover:bg-green-700">
+                                  <MessageCircle size={12} /> Chat
+                                </motion.button>
+                                {confirmed.filter(d => d.status === 'active').map(d => (
+                                  <motion.button type="button" key={d.donorId} whileTap={{ scale: 0.95 }} onTap={() => setVerifyTarget({ req, donor: d })}
+                                    className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white shadow transition-colors flex items-center gap-1.5"
+                                    style={{ background: "linear-gradient(135deg, #1e3a8a, #3b82f6)" }}>
+                                    <ShieldCheck size={12} /> Verify {d.donorName?.split(' ')[0] || 'Donor'}
+                                  </motion.button>
+                                ))}
+                            </div>
+                            {(confirmed.length > 0 || reserve.length > 0) && (
+                                <motion.button type="button" whileTap={{ scale: 0.95 }} onTap={() => setExpandedReqId(expandedReqId === req.id ? null : req.id)} 
+                                    className="ml-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors flex items-center gap-1.5 shadow-sm">
+                                    <Users size={12} /> {expandedReqId === req.id ? "Hide Donors" : "Manage Donors"}
+                                </motion.button>
                             )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                           <span className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ color: s.text, background: `${s.border}50` }}>
-                             <StatusIcon size={12} /> {s.label}
-                           </span>
-
-                           {/* Interactive Controls for Accepted or Pickup Status */}
-                           {(req.status === 'accepted' || req.status === 'ready_for_pickup') && (
-                             <div className="flex gap-2">
-                                {req.status === 'accepted' && (
-                                   <motion.button whileTap={{ scale: 0.95 }} onClick={() => navigate(`/chat/${req.id}`)}
-                                     className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white bg-green-600 shadow flex items-center gap-1.5 transition-colors hover:bg-green-700">
-                                     <MessageCircle size={12} /> Chat
-                                   </motion.button>
-                                )}
-                                <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleComplete(req.id)}
-                                  className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white shadow transition-colors"
-                                  style={{ background: "linear-gradient(135deg, #2563eb, #3b82f6)", border: "1px solid rgba(255,255,255,0.2)"}}>
-                                  Received
-                                </motion.button>
-                             </div>
-                           )}
-                        </div>
+                        )}
                       </motion.div>
                     );
                   })}
@@ -294,9 +419,9 @@ export default function PatientDashboard() {
                         </div>
                       </div>
                     </div>
-                    <motion.button
+                    <motion.button type="button"
                       whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      onClick={() => handleRequestSpecificDonor(donor)}
+                      onTap={() => handleRequestSpecificDonor(donor)}
                       disabled={requestedDonors.includes(donor.id)}
                       className="flex items-center justify-center shrink-0 w-full sm:w-auto gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all disabled:opacity-80"
                       style={requestedDonors.includes(donor.id)
@@ -360,6 +485,17 @@ export default function PatientDashboard() {
           </div>
         </div>
       </div>
+      
+      {verifyTarget && (
+        <VerificationModal 
+            isOpen={!!verifyTarget} 
+            onClose={() => setVerifyTarget(null)}
+            role="patient"
+            request={verifyTarget.req}
+            targetDonor={verifyTarget.donor}
+            onVerifySuccess={(donorId) => handleComplete(verifyTarget.req.id, donorId)}
+        />
+      )}
     </div>
   );
 }

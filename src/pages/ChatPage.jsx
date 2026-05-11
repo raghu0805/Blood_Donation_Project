@@ -101,13 +101,27 @@ export default function ChatPage() {
 
     const getOtherParticipantName = () => {
         if (!requestDetails) return "Loading...";
-        // If I am the patient, show Donor Name. If I am Donor, show Patient Name.
-        // Fallback checks
+        const confirmed = requestDetails.confirmedDonors || [];
         if (currentUser.uid === requestDetails.patientId) {
+            if (confirmed.length > 1) {
+                return `${confirmed.length} Donors`;
+            }
+            if (confirmed.length === 1) {
+                return confirmed[0].donorName || "Donor";
+            }
             return requestDetails.donorName || "Potential Donor";
         } else {
             return requestDetails.patientName || "Patient";
         }
+    };
+
+    const getSubtitle = () => {
+        if (!requestDetails) return "";
+        const unitsReq = requestDetails.unitsRequired || 1;
+        const unitsFul = requestDetails.unitsFulfilled || 0;
+        let sub = `${requestDetails.bloodGroup} Request \u2022 ${requestDetails.urgency}`;
+        if (unitsReq > 1) sub += ` \u2022 ${unitsFul}/${unitsReq} units`;
+        return sub;
     };
 
     return (
@@ -124,16 +138,21 @@ export default function ChatPage() {
                     <div className="flex-1">
                         <h2 className="font-bold text-gray-900">{getOtherParticipantName()}</h2>
                         <p className="text-xs text-gray-500">
-                            {requestDetails?.bloodGroup} Request • {requestDetails?.urgency}
+                            {getSubtitle()}
                         </p>
                     </div>
-
                 </div>
             </Card>
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-4 mx-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(148,163,184,0.15)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)" }}>
-                {messages.length === 0 ? (
+                {requestDetails && !(currentUser?.uid === requestDetails.patientId || requestDetails.confirmedDonors?.some(d => d.donorId === currentUser?.uid) || requestDetails.donorId === currentUser?.uid) ? (
+                    <div className="text-center text-amber-600 mt-10 p-6 bg-amber-50 rounded-2xl border border-amber-200">
+                        <p className="font-bold text-lg">Access Restricted</p>
+                        <p className="text-sm mt-2 text-amber-700">You must be confirmed by the patient to view and participate in this chat room.</p>
+                        <p className="text-xs mt-1 text-amber-600/70">Please wait on standby.</p>
+                    </div>
+                ) : messages.length === 0 ? (
                     <div className="text-center text-gray-400 mt-10">
                         <p>No messages yet.</p>
                         <p className="text-sm">Start the conversation to coordinate.</p>
@@ -148,8 +167,11 @@ export default function ChatPage() {
                                             ? 'text-white shadow-md'
                                             : 'text-gray-800 shadow-sm'
                                             }`}
-                                        style={isMe ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", borderBottomRightRadius: "4px" } : { background: "rgba(255,255,255,0.9)", border: "1px solid rgba(148,163,184,0.2)", borderBottomLeftRadius: "4px" }}
+                                        style={isMe ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", borderBottomRightRadius: "4px" } : msg.system ? { background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "12px" } : { background: "rgba(255,255,255,0.9)", border: "1px solid rgba(148,163,184,0.2)", borderBottomLeftRadius: "4px" }}
                                     >
+                                    {!isMe && !msg.system && (
+                                        <p className="text-[10px] font-bold text-blue-500 mb-0.5">{msg.senderName}</p>
+                                    )}
                                     {msg.type === 'location' && msg.coords ? (
                                         <a
                                             href={`https://www.google.com/maps?q=${msg.coords.lat},${msg.coords.lng}`}
@@ -175,30 +197,36 @@ export default function ChatPage() {
             </div>
 
             {/* Input Area */}
-            <div className="flex gap-2 p-3 mx-2 mb-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", border: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleShareLocation}
-                    title="Share Location"
-                    className="rounded-lg aspect-square p-0 w-12 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50"
-                >
-                    <MapPin className="h-5 w-5" />
-                </Button>
-                <form onSubmit={handleSend} className="flex-1 flex gap-2">
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Type a message..."
-                            className="flex-1 px-5 py-3 rounded-xl focus:outline-none transition-all text-gray-800"
-                            style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.2)", outline: "none" }}
-                        />
-                        <Button type="submit" disabled={!newMessage.trim()} className="rounded-xl aspect-square p-0 w-12 flex items-center justify-center transition-transform hover:scale-105" style={{ background: newMessage.trim() ? "linear-gradient(135deg, #dc2626, #ef4444)" : "#e2e8f0", color: newMessage.trim() ? "#fff" : "#94a3b8", border: "none" }}>
-                        <Send className="h-5 w-5" />
+            {requestDetails && (currentUser?.uid === requestDetails.patientId || requestDetails.confirmedDonors?.some(d => d.donorId === currentUser?.uid) || requestDetails.donorId === currentUser?.uid) ? (
+                <div className="flex gap-2 p-3 mx-2 mb-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", border: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleShareLocation}
+                        title="Share Location"
+                        className="rounded-lg aspect-square p-0 w-12 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                        <MapPin className="h-5 w-5" />
                     </Button>
-                </form>
-            </div>
+                    <form onSubmit={handleSend} className="flex-1 flex gap-2">
+                            <input
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                placeholder="Type a message..."
+                                className="flex-1 px-5 py-3 rounded-xl focus:outline-none transition-all text-gray-800"
+                                style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.2)", outline: "none" }}
+                            />
+                            <Button type="submit" disabled={!newMessage.trim()} className="rounded-xl aspect-square p-0 w-12 flex items-center justify-center transition-transform hover:scale-105" style={{ background: newMessage.trim() ? "linear-gradient(135deg, #dc2626, #ef4444)" : "#e2e8f0", color: newMessage.trim() ? "#fff" : "#94a3b8", border: "none" }}>
+                            <Send className="h-5 w-5" />
+                        </Button>
+                    </form>
+                </div>
+            ) : (
+                <div className="flex gap-2 p-4 mx-2 mb-2 rounded-2xl items-center justify-center" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                    <p className="text-sm font-bold text-amber-700 text-center">Chat is disabled for standby donors.</p>
+                </div>
+            )}
         </div>
     );
 }

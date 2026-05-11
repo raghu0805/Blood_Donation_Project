@@ -4,11 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMCP } from '../contexts/MCPContext';
 import { Button } from '../components/Button';
 import { Switch } from '@headlessui/react';
-import { MapPin, Bell, Clock, CheckCircle, HeartPulse, Radio, Heart, Droplets, Navigation, Award, TrendingUp, ChevronRight, Share2, Activity } from 'lucide-react';
+import { MapPin, Bell, Clock, CheckCircle, HeartPulse, Radio, Heart, Droplets, Navigation, Award, TrendingUp, ChevronRight, Share2, Activity, Users, XCircle, ShieldCheck, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { calculateDonationEligibility, canDonate } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { DonorDeclarationModal } from '../components/DonorDeclarationModal';
+import VerificationModal from '../components/VerificationModal';
 import LandingNavbar from '../components/LandingNavbar';
 
 const fadeUp = {
@@ -35,7 +36,7 @@ export default function DonorDashboard() {
 
     const { eligible, message, percentage, daysRemaining, nextDate } = calculateDonationEligibility(currentUser?.lastDonated, currentUser?.gender);
 
-    const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || "Donor";
+    const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || "User";
 
     useEffect(() => {
         const autoActivate = async () => {
@@ -115,8 +116,8 @@ export default function DonorDashboard() {
                             Welcome back, {userName.split(" ")[0] || "Hero"}. You're making a difference.
                         </motion.p>
                         </div>
-                        <motion.button variants={fadeUp} custom={3}
-                        onClick={() => navigate('/profile')}
+                        <motion.button type="button" variants={fadeUp} custom={3}
+                        onTap={() => navigate('/profile')}
                         whileHover={{ scale: 1.04, boxShadow: "0 8px 30px rgba(220,38,38,0.25)" }} whileTap={{ scale: 0.97 }}
                         className="flex items-center gap-2.5 self-start rounded-2xl bg-red-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition-colors hover:bg-red-500 md:self-auto">
                         <TrendingUp size={16} /> View Your Impact
@@ -260,8 +261,8 @@ export default function DonorDashboard() {
                                 </div>
                                 </div>
                             </div>
-                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                                onClick={() => navigate('/profile')}
+                            <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                                onTap={() => navigate('/profile')}
                                 className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white"
                                 style={{ background: "linear-gradient(135deg, #d4a017, #f59e0b)", boxShadow: "0 4px 16px rgba(212,160,23,0.25)" }}>
                                 <Navigation size={14} /> Update Location
@@ -304,8 +305,8 @@ export default function DonorDashboard() {
                                 { label: "View Notifications", icon: Bell, color: "#dc2626", path: "/donor-dashboard" },
                                 { label: "Donation History", icon: Activity, color: "#d4a017", path: "/profile" },
                                 ].map(({ label, icon: Icon, color, path }) => (
-                                <motion.button key={label} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}
-                                    onClick={() => navigate(path)}
+                                <motion.button type="button" key={label} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}
+                                    onTap={() => navigate(path)}
                                     className="flex items-center justify-between rounded-2xl px-4 py-3 text-left transition-all"
                                     style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.12)" }}>
                                     <div className="flex items-center gap-2.5">
@@ -334,13 +335,22 @@ export default function DonorDashboard() {
 }
 
 function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
-    const { acceptRequest } = useMCP();
+    const { acceptRequest, cancelDonorFromRequest } = useMCP();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
     const [showConsent, setShowConsent] = useState(false);
     const [accepting, setAccepting] = useState(false);
+    const [verifyTarget, setVerifyTarget] = useState(null);
 
-    const isAcceptedByMe = request.status === 'accepted' && request.donorId === currentUser?.uid;
+    const confirmed = request.confirmedDonors || [];
+    const reserve = request.reserveDonors || [];
+    const unitsReq = request.unitsRequired || 1;
+    const maxSlots = request.maxConfirmedSlots || unitsReq;
+    const isConfirmedByMe = confirmed.some(d => d.donorId === currentUser?.uid);
+    const isReserveByMe = reserve.some(d => d.donorId === currentUser?.uid);
+    const isAcceptedByMe = isConfirmedByMe || isReserveByMe || (request.status === 'accepted' && request.donorId === currentUser?.uid);
+    const isFull = ['closed', 'completed'].includes(request.status);
+    const isFulfilled = request.status === 'fulfilled';
     const compatible = canDonate(currentUser?.bloodGroup, request.bloodGroup);
 
     // Dynamic style based on urgency or accepted state
@@ -409,30 +419,59 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                 <div className="flex flex-col items-end gap-2">
                 <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold" style={{ color: style.text, background: `${style.border}40` }}>
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: style.dot }} />
-                    {isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
+                    {isConfirmedByMe ? "CONFIRMED" : isReserveByMe ? "RESERVE" : isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
                 </span>
-                <span className="text-xs text-slate-400">Live</span>
+                {unitsReq > 1 && (
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <Users size={10} /> {confirmed.length}/{unitsReq} slots
+                    </span>
+                )}
                 </div>
             </div>
             
             <div className="mt-4 flex gap-2">
                 {isAcceptedByMe ? (
-                    <motion.button onClick={() => navigate(`/chat/${request.id}`)}
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors bg-green-600 hover:bg-green-700">
-                        <Activity size={12} /> View Mission / Chat
-                    </motion.button>
+                    <div className="flex gap-2 flex-1">
+                        {(isConfirmedByMe || (request.status === 'accepted' && request.donorId === currentUser?.uid)) ? (
+                            <>
+                                <motion.button type="button" onTap={() => setVerifyTarget({ req: request, donor: confirmed.find(d => d.donorId === currentUser.uid) || {donorId: currentUser.uid, patientCode: 'P-1234', donorCode: 'D-5678'} })}
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors bg-blue-600 hover:bg-blue-700">
+                                    <ShieldCheck size={12} /> Verify
+                                </motion.button>
+                                <motion.button type="button" onTap={() => navigate(`/chat/${request.id}`)}
+                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors bg-green-600 hover:bg-green-700">
+                                    <MessageCircle size={12} /> Chat
+                                </motion.button>
+                            </>
+                        ) : (
+                            <div className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-amber-700 bg-amber-100/50 border border-amber-200/50">
+                                <Clock size={12} /> On Standby
+                            </div>
+                        )}
+                        <motion.button type="button" onTap={async () => {
+                                if (window.confirm('Are you sure you want to withdraw from this request?')) {
+                                    try { await cancelDonorFromRequest(request.id); } catch (err) { alert('Failed: ' + err.message); }
+                                }
+                            }}
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                            style={{ border: "1px solid rgba(220,38,38,0.2)" }}>
+                            <XCircle size={12} /> Withdraw
+                        </motion.button>
+                    </div>
                 ) : (
                     <>
-                        <motion.button 
-                            disabled={!compatible}
-                            onClick={handleAcceptClick}
-                            whileHover={compatible ? { scale: 1.02 } : {}} whileTap={compatible ? { scale: 0.98 } : {}}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors outline-none ${!compatible ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        <motion.button type="button"
+                            disabled={!compatible || isFull}
+                            onTap={handleAcceptClick}
+                            whileHover={(compatible && !isFull) ? { scale: 1.02 } : {}} whileTap={(compatible && !isFull) ? { scale: 0.98 } : {}}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors outline-none ${(!compatible || isFull) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             style={{ background: "linear-gradient(135deg, #dc2626, #ef4444)" }}>
-                            <Heart size={12} /> {accepting ? "Processing" : (compatible ? "Respond" : "Incompatible")}
+                            <Heart size={12} /> {accepting ? "Processing" : isFull ? "Request Closed" : (compatible ? (isFulfilled ? "Join Reserve" : "Respond") : "Incompatible")}
                         </motion.button>
-                        <motion.button onClick={handleShareClick}
+                        <motion.button type="button" onTap={handleShareClick}
                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             className="flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-100 bg-white"
                             style={{ border: "1px solid rgba(148,163,184,0.3)" }}>
@@ -441,6 +480,19 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                     </>
                 )}
             </div>
+            {verifyTarget && (
+                <VerificationModal 
+                    isOpen={!!verifyTarget} 
+                    onClose={() => setVerifyTarget(null)}
+                    role="donor"
+                    request={verifyTarget.req}
+                    targetDonor={verifyTarget.donor}
+                    onVerifySuccess={(donorId) => {
+                        console.log("Verified proximity for", donorId);
+                        // Optionally trigger local state update if needed
+                    }}
+                />
+            )}
         </motion.div>
     );
 }
