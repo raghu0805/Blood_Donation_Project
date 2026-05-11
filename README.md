@@ -1,7 +1,7 @@
 # LifeLink – Intelligent Blood Donation Finder
-
 **LifeLink** is a next-generation, ethical, and AI-powered platform designed to connect blood patients with verified donors in real-time during emergencies. Unlike traditional directories, LifeLink acts as an intelligent coordinator, ensuring speed, trust, and privacy.
 
+<<<<<<< HEAD
 ---
 
 ## 🏗️ Architecture Overview
@@ -69,6 +69,9 @@
 - **Malicious/Spam Requests:** Rate-limiting the Patient's ability to initialize requests.
 
 ---
+=======
+
+>>>>>>> 0240e93e04d6a610750e0ef3e95f6966a027361d
 
 ## 💻 Getting Started (Run Locally)
 
