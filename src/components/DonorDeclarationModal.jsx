@@ -24,11 +24,12 @@ const sectionColors = {
     6: { accent: '#16a34a', bg: 'rgba(22,163,74,0.06)', border: 'rgba(22,163,74,0.15)' },
 };
 
-export function DonorDeclarationModal({ isOpen, onClose, onConfirm }) {
+export function DonorDeclarationModal({ isOpen, onClose, onConfirm, isSubmitting }) {
     const { currentUser } = useAuth();
     const [checkedItems, setCheckedItems] = useState({});
     const [canSubmit, setCanSubmit] = useState(false);
     const [expandedSection, setExpandedSection] = useState(0);
+    const [preferredList, setPreferredList] = useState('confirmed'); // 'confirmed' (Reserved) or 'reserve' (Emergency)
 
     useEffect(() => {
         if (isOpen) {
@@ -326,6 +327,26 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm }) {
                     <div className="shrink-0 px-6 py-4 flex flex-col gap-3"
                         style={{ background: "rgba(248,250,252,0.8)", borderTop: "1px solid rgba(148,163,184,0.1)" }}>
 
+                        <div className="mb-2">
+                            <p className="text-xs font-bold text-slate-700 mb-2">Preferred Donation List:</p>
+                            <div className="flex gap-3">
+                                <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold cursor-pointer transition-all ${preferredList === 'confirmed' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-slate-500 border-slate-200'} border`}
+                                    onClick={() => setPreferredList('confirmed')}>
+                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${preferredList === 'confirmed' ? 'border-red-500' : 'border-slate-300'}`}>
+                                        {preferredList === 'confirmed' && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                                    </div>
+                                    Reserved List (Primary)
+                                </label>
+                                <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold cursor-pointer transition-all ${preferredList === 'reserve' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-slate-500 border-slate-200'} border`}
+                                    onClick={() => setPreferredList('reserve')}>
+                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${preferredList === 'reserve' ? 'border-amber-500' : 'border-slate-300'}`}>
+                                        {preferredList === 'reserve' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                                    </div>
+                                    Emergency List (Standby)
+                                </label>
+                            </div>
+                        </div>
+
                         <p className="text-[10px] text-slate-400 text-center leading-relaxed">
                             By confirming, I certify that all the above declared information is true and accurate to the best of my knowledge.
                         </p>
@@ -339,17 +360,17 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm }) {
                                 Cancel
                             </motion.button>
                             <motion.button
-                                whileHover={canSubmit ? { scale: 1.02, boxShadow: "0 8px 24px rgba(220,38,38,0.3)" } : {}}
-                                whileTap={canSubmit ? { scale: 0.97 } : {}}
-                                onClick={onConfirm}
-                                disabled={!canSubmit}
-                                className={`flex-[2] flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-all ${!canSubmit ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                whileHover={(canSubmit && !isSubmitting) ? { scale: 1.02, boxShadow: "0 8px 24px rgba(220,38,38,0.3)" } : {}}
+                                whileTap={(canSubmit && !isSubmitting) ? { scale: 0.97 } : {}}
+                                onClick={() => onConfirm(preferredList)}
+                                disabled={!canSubmit || isSubmitting}
+                                className={`flex-[2] flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-all ${(!canSubmit || isSubmitting) ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 style={{
                                     background: canSubmit ? "linear-gradient(135deg, #dc2626, #d4a017)" : "#cbd5e1",
-                                    boxShadow: canSubmit ? "0 4px 16px rgba(220,38,38,0.2)" : "none"
+                                    boxShadow: (canSubmit && !isSubmitting) ? "0 4px 16px rgba(220,38,38,0.2)" : "none"
                                 }}>
                                 <ShieldCheck size={16} />
-                                {canSubmit ? 'Confirm & Proceed' : `Complete All Items (${completedCount}/${allIds.length})`}
+                                {isSubmitting ? 'Processing...' : canSubmit ? 'Confirm & Proceed' : `Complete All Items (${completedCount}/${allIds.length})`}
                             </motion.button>
                         </div>
                     </div>

@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { calculateDonationEligibility, compressImage } from '../lib/utils';
+import { calculateDonationEligibility, compressImage, ALL_BLOOD_GROUPS as bloodGroups } from '../lib/utils';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { Camera, User, Phone, Droplets, Calendar, Weight, ChevronRight, ArrowLeft, Heart, Droplet, Edit2, Save, X, Activity } from 'lucide-react';
+import { Camera, User, Phone, Droplets, Calendar, Weight, ChevronRight, ArrowLeft, Heart, Droplet, Edit2, Save, X, Activity, Loader2 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import LandingNavbar from '../components/LandingNavbar';
 import UserAvatar from '../components/UserAvatar';
+import LoadingOverlay from '../components/LoadingOverlay';
+import { toast } from 'react-hot-toast';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
   visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] } }),
 };
-
-const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
 function EligibilityBadge({ age, weight, lastDonated, gender }) {
   const ageOk = age >= 18 && age <= 65;
@@ -60,6 +60,7 @@ export default function ProfilePage() {
     const [loadingStats, setLoadingStats] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isEditing, setIsEditing] = useState(false); // Used primarily by Admin now
+    const [isSaving, setIsSaving] = useState(false);
 
     const [form, setForm] = useState({
         fullName: "",
@@ -120,10 +121,10 @@ export default function ProfilePage() {
             const compressedBase64 = await compressImage(file);
             await updateUserProfile({ photoURL: compressedBase64 });
             setForm(prev => ({ ...prev, photoURL: compressedBase64 }));
-            if (userRole === 'admin') alert("Profile Photo Updated!");
+            if (userRole === 'admin') toast.success("Profile Photo Updated!");
         } catch (error) {
             console.error(error);
-            alert("Failed to upload photo.");
+            toast.error("Failed to upload photo.");
         } finally {
             setUploading(false);
         }
@@ -158,6 +159,8 @@ export default function ProfilePage() {
     };
 
     const handleSaveAdmin = async () => {
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             await updateUserProfile({
                 displayName: form.fullName,
@@ -166,18 +169,22 @@ export default function ProfilePage() {
                 bloodStock: form.bloodStock
             });
             setIsEditing(false);
-            alert("Profile Updated!");
+            toast.success("Profile Updated!");
         } catch (err) {
             console.error(err);
-            alert(`Failed to update profile: ${err.message || 'Unknown Error'}`);
+            toast.error(`Failed to update profile: ${err.message || 'Unknown Error'}`);
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleSaveUser = async () => {
+        if (isSaving) return;
         try {
-            if (parseInt(form.age) < 18) { alert("Age must be at least 18 years to donate blood."); return; }
-            if (parseInt(form.weight) < 50) { alert("Weight must be at least 50 kg to donate blood."); return; }
+            if (parseInt(form.age) < 18) { toast.error("Age must be at least 18 years to donate blood."); return; }
+            if (parseInt(form.weight) < 50) { toast.error("Weight must be at least 50 kg to donate blood."); return; }
 
+            setIsSaving(true);
             const updateData = {
                 displayName: form.fullName,
                 name: form.fullName,
@@ -190,10 +197,13 @@ export default function ProfilePage() {
             };
 
             await updateUserProfile(updateData);
+            toast.success("Profile saved successfully!");
             navigate('/role-selection');
         } catch (err) {
             console.error(err);
-            alert(`Failed to update profile: ${err.message || 'Unknown Error'}`);
+            toast.error(`Failed to update profile: ${err.message || 'Unknown Error'}`);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -203,6 +213,7 @@ export default function ProfilePage() {
     if (userRole === 'admin') {
         return (
             <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32 relative">
+                <LoadingOverlay isLoading={isSaving} message="Saving Changes..." subMessage="Updating your admin profile" />
                 <div className="flex items-center gap-6">
                     <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5 mr-2" /> Back</Button>
                     <h1 className="text-4xl font-black text-white tracking-tight">Admin <span className="text-[#e60026]">Profiler</span></h1>
@@ -248,7 +259,7 @@ export default function ProfilePage() {
                                             value={form.whatsapp} placeholder="+91..." onChange={e => set('whatsapp', e.target.value)} />
                                     </div>
                                     <div className="flex gap-2 pt-2">
-                                        <Button onClick={handleSaveAdmin} className="bg-red-600 hover:bg-red-700 text-white flex gap-2"><Save className="h-4 w-4" /> Save</Button>
+                                        <Button onClick={handleSaveAdmin} disabled={isSaving} className="bg-red-600 hover:bg-red-700 text-white flex gap-2">{isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save</>}</Button>
                                         <Button onClick={() => setIsEditing(false)} variant="ghost" className="flex gap-2"><X className="h-4 w-4" /> Cancel</Button>
                                     </div>
                                 </div>
@@ -300,7 +311,7 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="mt-6 flex justify-end">
-                        <Button onClick={handleSaveAdmin} className="bg-red-600 hover:bg-red-700 text-white flex gap-2"><Save className="h-4 w-4" /> Save Stock Updates</Button>
+                        <Button onClick={handleSaveAdmin} disabled={isSaving} className="bg-red-600 hover:bg-red-700 text-white flex gap-2">{isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Stock Updates</>}</Button>
                     </div>
                 </Card>
 
@@ -375,6 +386,7 @@ export default function ProfilePage() {
     // --------------------------------------------------------------------------------------------------------------------------
     return (
         <div className="min-h-screen font-sans antialiased" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
+            <LoadingOverlay isLoading={isSaving} message="Saving Profile..." subMessage="Updating your information" />
             <LandingNavbar activePath="/profile" />
 
             {/* Animated blobs */}
@@ -536,12 +548,13 @@ export default function ProfilePage() {
                             Cancel
                         </motion.button>
                         <motion.button
-                            whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(220,38,38,0.35)" }}
-                            whileTap={{ scale: 0.97 }}
+                            whileHover={!isSaving ? { scale: 1.02, boxShadow: "0 8px 32px rgba(220,38,38,0.35)" } : {}}
+                            whileTap={!isSaving ? { scale: 0.97 } : {}}
                             onClick={handleSaveUser}
-                            className="flex flex-[2] items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white"
+                            disabled={isSaving}
+                            className="flex flex-[2] items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white disabled:opacity-70 disabled:cursor-not-allowed"
                             style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 4px 20px rgba(220,38,38,0.25)" }}>
-                            Save Profile <ChevronRight size={16} />
+                            {isSaving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <>Save Profile <ChevronRight size={16} /></>}
                         </motion.button>
                     </motion.div>
                 </motion.div>

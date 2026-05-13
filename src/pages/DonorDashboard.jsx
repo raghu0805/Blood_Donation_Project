@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMCP } from '../contexts/MCPContext';
 import { Button } from '../components/Button';
 import { Switch } from '@headlessui/react';
-import { MapPin, Bell, Clock, CheckCircle, HeartPulse, Radio, Heart, Droplets, Navigation, Award, TrendingUp, ChevronRight, Share2, Activity, Users, XCircle, ShieldCheck, MessageCircle } from 'lucide-react';
+import { MapPin, Bell, Clock, CheckCircle, HeartPulse, Radio, Heart, Droplets, Navigation, Award, TrendingUp, ChevronRight, Share2, Activity, Users, XCircle, ShieldCheck, MessageCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { calculateDonationEligibility, canDonate } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { DonorDeclarationModal } from '../components/DonorDeclarationModal';
 import VerificationModal from '../components/VerificationModal';
 import LandingNavbar from '../components/LandingNavbar';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import LoadingOverlay from '../components/LoadingOverlay';
+import ConfirmModal from '../components/ConfirmModal';
+import LocationPreview from '../components/LocationPreview';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -29,10 +35,12 @@ const urgencyStyle = {
 export default function DonorDashboard() {
     const { currentUser } = useAuth();
     const navigate = useNavigate();
-    const { activeRequests, toggleDonorAvailability } = useMCP();
+    const { activeRequests, toggleDonorAvailability, isLoadingActive } = useMCP();
     const [isAvailable, setIsAvailable] = useState(currentUser?.isAvailable || false);
     const [showDeclaration, setShowDeclaration] = useState(false);
     const [pendingAvailability, setPendingAvailability] = useState(null);
+    const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {}, variant: 'danger' });
 
     const { eligible, message, percentage, daysRemaining, nextDate } = calculateDonationEligibility(currentUser?.lastDonated, currentUser?.gender);
 
@@ -48,9 +56,11 @@ export default function DonorDashboard() {
     }, [eligible, currentUser]);
 
     const handleToggle = async () => {
+        if (isUpdatingAvailability) return;
+        
         const val = !isAvailable;
         if (!eligible && val) {
-            alert(message);
+            toast.error(message);
             return;
         }
 
@@ -58,37 +68,48 @@ export default function DonorDashboard() {
             setPendingAvailability(true);
             setShowDeclaration(true);
         } else {
-            setIsAvailable(false);
+            setIsUpdatingAvailability(true);
             try {
                 await toggleDonorAvailability(false);
+                setIsAvailable(false);
             } catch (error) {
                 console.error("Failed to update availability", error);
-                setIsAvailable(true);
+                toast.error("Failed to update status. Please try again.");
+            } finally {
+                setIsUpdatingAvailability(false);
             }
         }
     };
 
-    const handleDeclarationConfirm = async () => {
-        setShowDeclaration(false);
-        if (pendingAvailability) {
-            setIsAvailable(true);
-            try {
+    const handleDeclarationConfirm = async (pref) => {
+        if (isUpdatingAvailability) return;
+        setIsUpdatingAvailability(true);
+        try {
+            if (pendingAvailability) {
                 await toggleDonorAvailability(true);
-            } catch (error) {
-                console.error("Failed to update availability", error);
-                setIsAvailable(false);
+                setIsAvailable(true);
+                setShowDeclaration(false);
+                setPendingAvailability(null);
+                toast.success("You are now live!");
             }
+        } catch (error) {
+            console.error("Failed to update availability", error);
+            toast.error("Failed to update status. Please try again.");
+        } finally {
+            setIsUpdatingAvailability(false);
         }
     };
 
     return (
         <div className="min-h-screen font-sans antialiased" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
+            <LoadingOverlay isLoading={isUpdatingAvailability} message={pendingAvailability ? "Going Live..." : "Going Offline..."} subMessage="Updating your availability status" />
             <LandingNavbar userName={userName} showUser activePath="/donor-dashboard" />
             
             <DonorDeclarationModal
                 isOpen={showDeclaration}
-                onClose={() => { setShowDeclaration(false); setPendingAvailability(null); }}
+                onClose={() => { if (!isUpdatingAvailability) { setShowDeclaration(false); setPendingAvailability(null); } }}
                 onConfirm={handleDeclarationConfirm}
+                isSubmitting={isUpdatingAvailability}
             />
 
             <div className="mx-auto max-w-6xl px-6 pt-28 pb-16">
@@ -152,15 +173,15 @@ export default function DonorDashboard() {
                                 <div className="flex flex-col items-center gap-2 opacity-100">
                                 <p className="text-xs font-semibold text-slate-500">Broadcasting</p>
                                 <button onClick={handleToggle}
-                                    disabled={!eligible && !isAvailable}
+                                    disabled={(!eligible && !isAvailable) || isUpdatingAvailability}
                                     title={!eligible ? "Not eligible yet" : ""}
-                                    className={`relative h-8 w-14 rounded-full transition-colors duration-300 ${!eligible && !isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`relative h-8 w-14 rounded-full transition-colors duration-300 ${((!eligible && !isAvailable) || isUpdatingAvailability) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     style={{ background: (isAvailable && eligible) ? "linear-gradient(135deg, #dc2626, #ef4444)" : "#e2e8f0" }}>
                                     <motion.span animate={{ x: (isAvailable && eligible) ? 24 : 2 }} transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                     className="absolute top-1 h-6 w-6 rounded-full bg-white shadow-md" style={{ left: 2 }} />
                                 </button>
                                 <span className="text-xs font-bold" style={{ color: (isAvailable && eligible) ? "#dc2626" : "#94a3b8" }}>
-                                    {(isAvailable && eligible) ? "ON" : "OFF"}
+                                    {isUpdatingAvailability ? "..." : (isAvailable && eligible) ? "ON" : "OFF"}
                                 </span>
                                 </div>
                             </div>
@@ -212,7 +233,11 @@ export default function DonorDashboard() {
                             </div>
 
                             <div className="flex flex-col gap-3">
-                                {activeRequests.length === 0 ? (
+                                {isLoadingActive ? (
+                                    <div className="py-12">
+                                        <LoadingSpinner size="md" />
+                                    </div>
+                                ) : activeRequests.length === 0 ? (
                                     <p className="text-gray-500 text-sm italic py-4">No active requests in your area at this moment.</p>
                                 ) : (
                                     <AnimatePresence>
@@ -223,6 +248,7 @@ export default function DonorDashboard() {
                                             eligible={eligible} 
                                             recoveryMessage={message} 
                                             delay={i * 0.1}
+                                            setGlobalConfirm={setConfirmState}
                                         />
                                     ))}
                                     </AnimatePresence>
@@ -330,16 +356,27 @@ export default function DonorDashboard() {
                     </div>
                 </div>
             </div>
+
+            <ConfirmModal 
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                variant={confirmState.variant}
+                confirmText={confirmState.confirmText}
+            />
         </div>
     );
 }
 
-function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
-    const { acceptRequest, cancelDonorFromRequest } = useMCP();
+function RequestCard({ request, eligible, recoveryMessage, delay = 0, setGlobalConfirm }) {
+    const { acceptRequest, cancelDonorFromRequest, userLocation } = useMCP();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
     const [showConsent, setShowConsent] = useState(false);
     const [accepting, setAccepting] = useState(false);
+    const [withdrawing, setWithdrawing] = useState(false);
     const [verifyTarget, setVerifyTarget] = useState(null);
 
     const confirmed = request.confirmedDonors || [];
@@ -361,20 +398,21 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
 
     const handleAcceptClick = () => {
         if (eligible === false) { 
-            alert(`Cannot accept: Recovery Period Active.\n${recoveryMessage || 'Please wait until your recovery period is over.'}`);
+            toast.error(`Cannot accept: Recovery Period Active. ${recoveryMessage || 'Please wait until your recovery period is over.'}`);
             return;
         }
         setShowConsent(true);
     };
 
-    const confirmAccept = async () => {
+    const confirmAccept = async (preferredList) => {
         setAccepting(true);
         try {
-            await acceptRequest(request.id);
+            await acceptRequest(request.id, preferredList);
             setShowConsent(false);
         } catch (err) {
             console.error(err);
-            alert("Failed to accept request");
+            toast.error("Failed to accept request: " + (err.message || err));
+
         } finally {
             setAccepting(false);
         }
@@ -385,7 +423,7 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
         if (navigator.share) {
             navigator.share({ title: `Blood Request - ${request.bloodGroup}`, text: shareText, url: window.location.href }).catch(console.error);
         } else {
-            alert("Copy this to share:\n\n" + shareText);
+            toast.success("Copy this to share: " + shareText);
         }
     };
 
@@ -396,8 +434,9 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
             
             <DonorDeclarationModal
                 isOpen={showConsent}
-                onClose={() => setShowConsent(false)}
+                onClose={() => { if (!accepting) setShowConsent(false); }}
                 onConfirm={confirmAccept}
+                isSubmitting={accepting}
             />
 
             <div className="flex items-center justify-between">
@@ -408,18 +447,20 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                 </div>
                 <div>
                     <p className="text-sm font-semibold text-gray-900">{request.patientName}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                    <MapPin size={11} className="text-slate-400" />
-                    <span className="text-xs text-slate-400">{request.distance || "Nearby"}</span>
-                    <span className="text-slate-300">·</span>
-                    <span className="text-xs text-slate-400">{request.hospitalName || "Hospital"}</span>
+                    <div className="flex items-start gap-2 mt-1.5 min-w-0">
+                        <MapPin size={11} className="text-slate-400 shrink-0 mt-0.5" />
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                            <span className="text-xs text-slate-500 font-medium leading-tight">{request.hospitalName || request.hospital || "Hospital"}</span>
+                            <span className="text-slate-300 hidden sm:inline">·</span>
+                            <span className="text-xs text-slate-400 font-bold shrink-0">{request.distance || "Nearby"}</span>
+                        </div>
                     </div>
                 </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                 <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold" style={{ color: style.text, background: `${style.border}40` }}>
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: style.dot }} />
-                    {isConfirmedByMe ? "CONFIRMED" : isReserveByMe ? "RESERVE" : isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
+                    {isConfirmedByMe ? "RESERVED" : isReserveByMe ? "EMERGENCY" : isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
                 </span>
                 {unitsReq > 1 && (
                     <span className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -428,6 +469,13 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                 )}
                 </div>
             </div>
+
+            {/* Interactive Location Map Preview */}
+            <LocationPreview
+                hospitalLocation={request.location}
+                hospitalName={request.hospitalName || request.hospital}
+                donorLocation={userLocation}
+            />
             
             <div className="mt-4 flex gap-2">
                 {isAcceptedByMe ? (
@@ -451,14 +499,31 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                             </div>
                         )}
                         <motion.button type="button" onTap={async () => {
-                                if (window.confirm('Are you sure you want to withdraw from this request?')) {
-                                    try { await cancelDonorFromRequest(request.id); } catch (err) { alert('Failed: ' + err.message); }
-                                }
+                                if (withdrawing) return;
+                                setGlobalConfirm({
+                                    isOpen: true,
+                                    title: "Withdraw from Request",
+                                    message: "Are you sure you want to withdraw from this request? This may affect the patient's search for donors.",
+                                    variant: "danger",
+                                    confirmText: "Withdraw",
+                                    onConfirm: async () => {
+                                        setWithdrawing(true);
+                                        try { 
+                                            await cancelDonorFromRequest(request.id); 
+                                            toast.success("Withdrawn successfully");
+                                        } catch (err) { 
+                                            toast.error('Failed: ' + err.message); 
+                                        } finally {
+                                            setWithdrawing(false);
+                                        }
+                                    }
+                                });
                             }}
-                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                            className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                            disabled={withdrawing}
+                            whileHover={!withdrawing ? { scale: 1.02 } : {}} whileTap={!withdrawing ? { scale: 0.98 } : {}}
+                            className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
                             style={{ border: "1px solid rgba(220,38,38,0.2)" }}>
-                            <XCircle size={12} /> Withdraw
+                            {withdrawing ? <><Loader2 size={12} className="animate-spin" /> Withdrawing</> : <><XCircle size={12} /> Withdraw</>}
                         </motion.button>
                     </div>
                 ) : (
@@ -469,7 +534,8 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0 }) {
                             whileHover={(compatible && !isFull) ? { scale: 1.02 } : {}} whileTap={(compatible && !isFull) ? { scale: 0.98 } : {}}
                             className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors outline-none ${(!compatible || isFull) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             style={{ background: "linear-gradient(135deg, #dc2626, #ef4444)" }}>
-                            <Heart size={12} /> {accepting ? "Processing" : isFull ? "Request Closed" : (compatible ? (isFulfilled ? "Join Reserve" : "Respond") : "Incompatible")}
+                            <Heart size={12} />
+                            {accepting ? <><Loader2 size={12} className="animate-spin" /> Processing</> : isFull ? "Request Closed" : (compatible ? (isFulfilled ? "Join Reserve" : "Respond") : "Incompatible")}
                         </motion.button>
                         <motion.button type="button" onTap={handleShareClick}
                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}

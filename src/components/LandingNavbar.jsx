@@ -6,23 +6,27 @@ import logo from '../assets/app logo.png';
 import pecLogo from '../assets/pec logo.png';
 import yrcLogo from '../assets/yrc logo.png';
 import { useAuth } from '../contexts/AuthContext';
-import { useMCP } from '../contexts/MCPContext';
-import { canDonate } from '../lib/utils';
+import useNotifications from '../hooks/useNotifications';
 import UserAvatar from './UserAvatar';
 
 export default function LandingNavbar({ activePath = "" }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [dismissedIds, setDismissedIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('lifelink_dismissed_notifs') || '[]'); } catch { return []; }
-  });
   const notifRef = useRef(null);
   const { currentUser, logout, userRole, assignRole, setIsRoleSwitching } = useAuth();
-  const { activeRequests, myRequests } = useMCP();
 
   const showUser = !!currentUser;
   const userName = currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : "User");
+
+  // Centralized notification system
+  const {
+    visibleNotifs, unreadCount, readIds,
+    markAsRead, markAllRead, dismissNotif, clearAll
+  } = useNotifications();
+
+  // Icon resolver — maps iconType strings from hook to actual Lucide icons
+  const iconMap = { alert: AlertTriangle, check: CheckCircle, users: Users, mappin: MapPin, message: MessageCircle };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -32,145 +36,6 @@ export default function LandingNavbar({ activePath = "" }) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  // Build notifications from live data
-  const notifications = [];
-
-  if (currentUser) {
-    // === DONOR NOTIFICATIONS: New matching requests ===
-    const myBlood = currentUser?.bloodGroup;
-    if (myBlood && activeRequests) {
-      activeRequests.forEach(req => {
-        // Skip own requests
-        if (req.patientId === currentUser.uid) return;
-        // Skip if already accepted by me
-        const confirmed = req.confirmedDonors || [];
-        const reserve = req.reserveDonors || [];
-        if (confirmed.some(d => d.donorId === currentUser.uid)) return;
-        if (reserve.some(d => d.donorId === currentUser.uid)) return;
-        if (req.donorId === currentUser.uid) return;
-        // Skip fulfilled
-        if (['fulfilled', 'closed', 'completed'].includes(req.status)) return;
-        // Check blood compatibility
-        if (!canDonate(myBlood, req.bloodGroup)) return;
-
-        const timeAgo = req.createdAt?.seconds
-          ? getTimeAgo(req.createdAt.seconds * 1000)
-          : 'Just now';
-
-        notifications.push({
-          id: `req_${req.id}`,
-          type: 'new_request',
-          icon: AlertTriangle,
-          iconColor: req.urgency === 'Emergency' ? '#dc2626' : req.urgency === 'Urgent' ? '#d97706' : '#64748b',
-          iconBg: req.urgency === 'Emergency' ? 'rgba(220,38,38,0.08)' : req.urgency === 'Urgent' ? 'rgba(245,158,11,0.08)' : 'rgba(148,163,184,0.08)',
-          title: `${req.urgency}: ${req.bloodGroup} blood needed`,
-          subtitle: `${req.patientName} · ${req.hospital || req.hospitalName || 'Nearby'} · ${req.unitsRequired || 1} unit${(req.unitsRequired || 1) > 1 ? 's' : ''}`,
-          time: timeAgo,
-          action: () => { navigate('/donor-dashboard'); setNotifOpen(false); },
-          actionLabel: 'View',
-          timestamp: req.createdAt?.seconds || 0
-        });
-      });
-    }
-
-    // === PATIENT NOTIFICATIONS: Donors accepted my request ===
-    if (myRequests) {
-      myRequests.forEach(req => {
-        if (req.patientId !== currentUser.uid) return;
-
-        const confirmed = req.confirmedDonors || [];
-        const unitsReq = req.unitsRequired || 1;
-
-        // Notification for each confirmed donor
-        confirmed.forEach(donor => {
-          notifications.push({
-            id: `accepted_${req.id}_${donor.donorId}`,
-            type: 'donor_accepted',
-            icon: CheckCircle,
-            iconColor: '#16a34a',
-            iconBg: 'rgba(34,197,94,0.08)',
-            title: `${donor.donorName || 'A donor'} accepted your request`,
-            subtitle: `${req.bloodGroup} · ${confirmed.length}/${unitsReq} confirmed`,
-            time: donor.acceptedAt ? getTimeAgo(new Date(donor.acceptedAt).getTime()) : 'Recently',
-            action: () => { navigate(`/chat/${req.id}`); setNotifOpen(false); },
-            actionLabel: 'Chat',
-            timestamp: donor.acceptedAt ? new Date(donor.acceptedAt).getTime() / 1000 : 0
-          });
-        });
-
-        // Notification when request is fulfilled
-        if (req.status === 'fulfilled') {
-          notifications.push({
-            id: `fulfilled_${req.id}`,
-            type: 'fulfilled',
-            icon: Users,
-            iconColor: '#16a34a',
-            iconBg: 'rgba(34,197,94,0.08)',
-            title: `All ${unitsReq} donor slots filled!`,
-            subtitle: `${req.bloodGroup} request fully matched`,
-            time: req.updatedAt?.seconds ? getTimeAgo(req.updatedAt.seconds * 1000) : 'Now',
-            action: () => { navigate('/patient-dashboard'); setNotifOpen(false); },
-            actionLabel: 'View',
-            timestamp: req.updatedAt?.seconds || 0
-          });
-        }
-
-        // Emergency escalation
-        if (req.emergencyEscalation) {
-          notifications.push({
-            id: `emergency_${req.id}`,
-            type: 'emergency',
-            icon: AlertTriangle,
-            iconColor: '#dc2626',
-            iconBg: 'rgba(220,38,38,0.08)',
-            title: `⚠ Donors needed for ${req.bloodGroup} request`,
-            subtitle: `${confirmed.length}/${unitsReq} confirmed · No reserves left`,
-            time: 'Now',
-            action: () => { navigate('/patient-dashboard'); setNotifOpen(false); },
-            actionLabel: 'View',
-            timestamp: Date.now() / 1000
-          });
-        }
-
-        // Ready for pickup
-        if (req.status === 'ready_for_pickup' && req.pickupCode) {
-          notifications.push({
-            id: `pickup_${req.id}`,
-            type: 'pickup',
-            icon: MapPin,
-            iconColor: '#9333ea',
-            iconBg: 'rgba(147,51,234,0.08)',
-            title: `Blood reserved — ready for pickup`,
-            subtitle: `Code: ${req.pickupCode}`,
-            time: req.updatedAt?.seconds ? getTimeAgo(req.updatedAt.seconds * 1000) : 'Now',
-            action: () => { navigate(`/chat/${req.id}`); setNotifOpen(false); },
-            actionLabel: 'Details',
-            timestamp: req.updatedAt?.seconds || 0
-          });
-        }
-      });
-    }
-  }
-
-  // Sort by most recent first
-  notifications.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-  // Filter out dismissed
-  const visibleNotifs = notifications.filter(n => !dismissedIds.includes(n.id));
-  const notifCount = visibleNotifs.length;
-
-  const dismissNotif = (id) => {
-    const updated = [...dismissedIds, id];
-    setDismissedIds(updated);
-    localStorage.setItem('lifelink_dismissed_notifs', JSON.stringify(updated));
-  };
-
-  const clearAll = () => {
-    const allIds = notifications.map(n => n.id);
-    setDismissedIds(allIds);
-    localStorage.setItem('lifelink_dismissed_notifs', JSON.stringify(allIds));
-  };
 
   const handleLogout = async () => {
       await logout();
@@ -237,14 +102,14 @@ export default function LandingNavbar({ activePath = "" }) {
               <>
                 {/* Notification Bell */}
                 <div className="relative hidden sm:block" ref={notifRef}>
-                  <button onClick={() => setNotifOpen(!notifOpen)}
+                  <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen && unreadCount > 0) markAllRead(); }}
                     className="relative p-1.5 rounded-xl hover:bg-red-50 transition-colors">
                     <Bell size={17} className={`transition-colors ${notifOpen ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`} />
-                    {notifCount > 0 && (
+                    {unreadCount > 0 && (
                       <motion.span
                         initial={{ scale: 0 }} animate={{ scale: 1 }}
                         className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white ring-2 ring-white">
-                        {notifCount > 9 ? '9+' : notifCount}
+                        {unreadCount > 9 ? '9+' : unreadCount}
                       </motion.span>
                     )}
                   </button>
@@ -265,13 +130,13 @@ export default function LandingNavbar({ activePath = "" }) {
                           <div className="flex items-center gap-2">
                             <Bell size={14} className="text-red-500" />
                             <span className="text-sm font-bold text-gray-900">Notifications</span>
-                            {notifCount > 0 && (
+                            {visibleNotifs.length > 0 && (
                               <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-100 px-1.5 text-[10px] font-bold text-red-600">
-                                {notifCount}
+                                {visibleNotifs.length}
                               </span>
                             )}
                           </div>
-                          {notifCount > 0 && (
+                          {visibleNotifs.length > 0 && (
                             <button onClick={clearAll} className="text-[11px] font-semibold text-slate-400 hover:text-red-500 transition-colors">
                               Clear all
                             </button>
@@ -290,23 +155,28 @@ export default function LandingNavbar({ activePath = "" }) {
                             </div>
                           ) : (
                             visibleNotifs.slice(0, 8).map((notif, idx) => {
-                              const Icon = notif.icon;
+                              const Icon = iconMap[notif.iconType] || AlertTriangle;
+                              const isRead = readIds.includes(notif.id);
                               return (
                                 <motion.div
                                   key={notif.id}
                                   initial={{ opacity: 0, x: -8 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: idx * 0.03 }}
-                                  className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                                  style={{ borderBottom: "1px solid rgba(148,163,184,0.08)" }}
-                                  onClick={notif.action}>
-                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl mt-0.5"
+                                  className={`flex items-start gap-3 px-5 py-3.5 transition-colors cursor-pointer group ${isRead ? 'hover:bg-slate-50/60' : 'hover:bg-red-50/40'}`}
+                                  style={{
+                                    borderBottom: "1px solid rgba(148,163,184,0.08)",
+                                    background: isRead ? 'transparent' : 'rgba(220,38,38,0.02)',
+                                    borderLeft: isRead ? 'none' : '3px solid #dc2626'
+                                  }}
+                                  onClick={() => { markAsRead(notif.id); navigate(notif.actionPath); setNotifOpen(false); }}>
+                                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl mt-0.5 ${isRead ? 'opacity-50' : ''}`}
                                     style={{ background: notif.iconBg }}>
                                     <Icon size={16} style={{ color: notif.iconColor }} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] font-semibold text-gray-800 leading-tight">{notif.title}</p>
-                                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">{notif.subtitle}</p>
+                                    <p className={`text-[13px] leading-tight ${isRead ? 'font-medium text-gray-500' : 'font-semibold text-gray-800'}`}>{notif.title}</p>
+                                    <p className={`text-[11px] mt-0.5 truncate ${isRead ? 'text-slate-300' : 'text-slate-400'}`}>{notif.subtitle}</p>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Clock size={10} className="text-slate-300" />
                                       <span className="text-[10px] text-slate-300">{notif.time}</span>
@@ -325,14 +195,12 @@ export default function LandingNavbar({ activePath = "" }) {
                         </div>
 
                         {/* Footer */}
-                        {visibleNotifs.length > 0 && (
-                          <div className="px-5 py-2.5" style={{ borderTop: "1px solid rgba(148,163,184,0.1)", background: "rgba(248,250,252,0.5)" }}>
-                            <button onClick={() => { navigate(userRole === 'donor' ? '/donor-dashboard' : '/patient-dashboard'); setNotifOpen(false); }}
-                              className="w-full text-center text-xs font-semibold text-red-500 hover:text-red-600 transition-colors py-1">
-                              View all activity →
-                            </button>
-                          </div>
-                        )}
+                        <div className="px-5 py-2.5" style={{ borderTop: "1px solid rgba(148,163,184,0.1)", background: "rgba(248,250,252,0.5)" }}>
+                          <button onClick={() => { navigate('/notifications'); setNotifOpen(false); }}
+                            className="w-full text-center text-xs font-semibold text-red-500 hover:text-red-600 transition-colors py-1">
+                            View all notifications →
+                          </button>
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -419,18 +287,18 @@ export default function LandingNavbar({ activePath = "" }) {
             </div>
 
             {/* Mobile Notifications */}
-            {showUser && notifCount > 0 && (
+            {showUser && visibleNotifs.length > 0 && (
               <div className="mb-4 rounded-2xl p-3" style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.1)" }}>
                 <div className="flex items-center gap-2 mb-2">
                   <Bell size={13} className="text-red-500" />
                   <span className="text-xs font-bold text-gray-700">Notifications</span>
-                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-100 px-1 text-[9px] font-bold text-red-600">{notifCount}</span>
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-100 px-1 text-[9px] font-bold text-red-600">{visibleNotifs.length}</span>
                 </div>
                 <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
                   {visibleNotifs.slice(0, 4).map(notif => {
-                    const Icon = notif.icon;
+                    const Icon = iconMap[notif.iconType] || AlertTriangle;
                     return (
-                      <div key={notif.id} onClick={() => { notif.action(); setMenuOpen(false); }}
+                      <div key={notif.id} onClick={() => { markAsRead(notif.id); navigate(notif.actionPath); setMenuOpen(false); }}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
                         style={{ border: "1px solid rgba(148,163,184,0.1)" }}>
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: notif.iconBg }}>
@@ -443,6 +311,12 @@ export default function LandingNavbar({ activePath = "" }) {
                       </div>
                     );
                   })}
+                  {visibleNotifs.length > 4 && (
+                    <button onClick={() => { navigate('/notifications'); setMenuOpen(false); }}
+                      className="w-full text-center text-[11px] font-bold text-red-500 hover:text-red-600 transition-colors py-1 mt-1">
+                      View all notifications →
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -486,17 +360,4 @@ export default function LandingNavbar({ activePath = "" }) {
       </AnimatePresence>
     </>
   );
-}
-
-// Helper: human-readable time ago
-function getTimeAgo(timestampMs) {
-  const seconds = Math.floor((Date.now() - timestampMs) / 1000);
-  if (seconds < 60) return 'Just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(timestampMs).toLocaleDateString();
 }

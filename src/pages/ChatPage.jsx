@@ -1,24 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-hot-toast';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Send, ArrowLeft, User, MapPin, Navigation } from 'lucide-react';
+import { Send, ArrowLeft, User, MapPin, Navigation, Info, Activity, AlertTriangle, Loader2 } from 'lucide-react';
+import UserAvatar from '../components/UserAvatar';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ChatPage() {
     const { requestId } = useParams();
     const { currentUser } = useAuth();
-    const { sendMessage } = useMCP();
+    const { sendMessage, userLocation } = useMCP();
     const navigate = useNavigate();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [requestDetails, setRequestDetails] = useState(null);
+    const [showHeaderInfo, setShowHeaderInfo] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const [isSharingLocation, setIsSharingLocation] = useState(false);
     const messagesEndRef = useRef(null);
 
-    // Fetch Request Details (Active Participant Info)
+    // Fetch Request Details
     useEffect(() => {
         const fetchRequest = async () => {
             if (!requestId) return;
@@ -28,7 +34,8 @@ export default function ChatPage() {
                 if (docSnap.exists()) {
                     setRequestDetails({ id: docSnap.id, ...docSnap.data() });
                 } else {
-                    alert("Request not found");
+                    toast.error("Request not found");
+
                     navigate('/');
                 }
             } catch (err) {
@@ -64,24 +71,29 @@ export default function ChatPage() {
     }, [messages]);
 
     const handleSend = async (e) => {
-        e.preventDefault();
-        if (!newMessage.trim()) return;
+        if (e) e.preventDefault();
+        if (!newMessage.trim() || isSending) return;
 
+        setIsSending(true);
         try {
-            await sendMessage(requestId, newMessage);
-            setNewMessage('');
+            const text = newMessage;
+            setNewMessage(''); // Clear immediately for better UX
+            await sendMessage(requestId, text);
         } catch (err) {
             console.error("Failed to send:", err);
-            alert("Failed to send message.");
+            toast.error("Failed to send message.");
+        } finally {
+            setIsSending(false);
         }
     };
 
     const handleShareLocation = () => {
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser");
+            toast.error("Geolocation is not supported by your browser");
             return;
         }
 
+        setIsSharingLocation(true);
         navigator.geolocation.getCurrentPosition(async (position) => {
             const { latitude, longitude } = position.coords;
             try {
@@ -91,142 +103,241 @@ export default function ChatPage() {
                 });
             } catch (err) {
                 console.error("Error sharing location:", err);
-                alert("Failed to share location.");
+                toast.error("Failed to share location.");
+            } finally {
+                setIsSharingLocation(false);
             }
         }, (error) => {
             console.error("Geolocation error:", error);
-            alert("Unable to retrieve your location.");
-        });
+            toast.error("Unable to retrieve your location.");
+            setIsSharingLocation(false);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     };
 
-    const getOtherParticipantName = () => {
-        if (!requestDetails) return "Loading...";
+    const getOtherParticipantInfo = () => {
+        if (!requestDetails) return { name: "Loading...", photoURL: null };
+        const isPatient = currentUser.uid === requestDetails.patientId;
         const confirmed = requestDetails.confirmedDonors || [];
-        if (currentUser.uid === requestDetails.patientId) {
+        
+        if (isPatient) {
             if (confirmed.length > 1) {
-                return `${confirmed.length} Donors`;
+                return { name: `${confirmed.length} Donors Pool`, photoURL: null };
             }
             if (confirmed.length === 1) {
-                return confirmed[0].donorName || "Donor";
+                return { name: confirmed[0].donorName || "Donor", photoURL: confirmed[0].donorPhotoURL };
             }
-            return requestDetails.donorName || "Potential Donor";
+            return { name: requestDetails.donorName || "Potential Donor", photoURL: requestDetails.donorPhotoURL };
         } else {
-            return requestDetails.patientName || "Patient";
+            return { name: requestDetails.patientName || "Patient", photoURL: requestDetails.patientPhotoURL };
         }
     };
 
-    const getSubtitle = () => {
-        if (!requestDetails) return "";
-        const unitsReq = requestDetails.unitsRequired || 1;
-        const unitsFul = requestDetails.unitsFulfilled || 0;
-        let sub = `${requestDetails.bloodGroup} Request \u2022 ${requestDetails.urgency}`;
-        if (unitsReq > 1) sub += ` \u2022 ${unitsFul}/${unitsReq} units`;
-        return sub;
-    };
+    const otherUser = getOtherParticipantInfo();
 
     return (
-        <div className="max-w-2xl mx-auto h-[calc(100dvh-5rem)] md:h-[calc(100vh-6rem)] flex flex-col mt-4" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)", borderRadius: "10px" }}>
+        <div className="flex h-screen flex-col bg-slate-50 md:bg-transparent overflow-hidden">
             {/* Header */}
-            <Card className="mb-4 rounded-b-none border-b-0 flex-none z-10" style={{ background: "transparent", border: "none", boxShadow: "none" }}>
-                <div className="p-4 flex items-center gap-3 rounded-t-xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 4px 20px rgba(220,38,38,0.04)" }}>
-                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                        <ArrowLeft className="h-5 w-5" />
+            <header className="relative z-20 flex-none border-b border-slate-200/60 bg-white/80 px-4 py-3 backdrop-blur-xl md:rounded-t-3xl md:mt-4 md:mx-4 md:shadow-sm">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="rounded-full h-10 w-10 p-0 text-slate-500 hover:bg-slate-100 hover:text-red-600 transition-colors">
+                        <ArrowLeft className="h-6 w-6" />
                     </Button>
-                    <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <User className="h-6 w-6 text-red-600" />
+                    
+                    <div className="flex flex-1 items-center gap-3">
+                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl shadow-sm">
+                            <UserAvatar photoURL={otherUser.photoURL} name={otherUser.name} />
+                            {requestDetails?.status === 'ready_for_pickup' && (
+                                <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-white shadow-sm" />
+                            )}
+                        </div>
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                            <h2 className="truncate text-base font-black text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                                {otherUser.name}
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100/50">
+                                    {requestDetails?.bloodGroup} Needed
+                                </span>
+                                <span className="text-slate-300">·</span>
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                                    <Activity size={10} /> {requestDetails?.hospitalName || requestDetails?.hospital || "Emergency Site"}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <h2 className="font-bold text-gray-900">{getOtherParticipantName()}</h2>
-                        <p className="text-xs text-gray-500">
-                            {getSubtitle()}
-                        </p>
-                    </div>
-                </div>
-            </Card>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-4 mx-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(148,163,184,0.15)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)" }}>
-                {requestDetails && !(currentUser?.uid === requestDetails.patientId || requestDetails.confirmedDonors?.some(d => d.donorId === currentUser?.uid) || requestDetails.donorId === currentUser?.uid) ? (
-                    <div className="text-center text-amber-600 mt-10 p-6 bg-amber-50 rounded-2xl border border-amber-200">
-                        <p className="font-bold text-lg">Access Restricted</p>
-                        <p className="text-sm mt-2 text-amber-700">You must be confirmed by the patient to view and participate in this chat room.</p>
-                        <p className="text-xs mt-1 text-amber-600/70">Please wait on standby.</p>
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="text-center text-gray-400 mt-10">
-                        <p>No messages yet.</p>
-                        <p className="text-sm">Start the conversation to coordinate.</p>
-                    </div>
-                ) : (
-                    messages.map((msg) => {
-                        const isMe = msg.senderId === currentUser?.uid;
-                        return (
-                            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <div
-                                        className={`max-w-[75%] px-5 py-3 rounded-2xl text-sm ${isMe
-                                            ? 'text-white shadow-md'
-                                            : 'text-gray-800 shadow-sm'
-                                            }`}
-                                        style={isMe ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", borderBottomRightRadius: "4px" } : msg.system ? { background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "12px" } : { background: "rgba(255,255,255,0.9)", border: "1px solid rgba(148,163,184,0.2)", borderBottomLeftRadius: "4px" }}
-                                    >
-                                    {!isMe && !msg.system && (
-                                        <p className="text-[10px] font-bold text-blue-500 mb-0.5">{msg.senderName}</p>
-                                    )}
-                                    {msg.type === 'location' && msg.coords ? (
-                                        <a
-                                            href={`https://www.google.com/maps?q=${msg.coords.lat},${msg.coords.lng}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={`flex items-center gap-2 font-bold underline ${isMe ? 'text-white' : 'text-blue-600'}`}
-                                        >
-                                            <MapPin className="h-4 w-4" />
-                                            Shared Location
-                                        </a>
-                                    ) : (
-                                        <p>{msg.text}</p>
-                                    )}
-                                    <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-red-100' : 'text-gray-400'}`}>
-                                        {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowHeaderInfo(!showHeaderInfo)}
+                        className={`rounded-full h-10 w-10 p-0 transition-colors ${showHeaderInfo ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:bg-slate-100'}`}
+                    >
+                        <Info size={20} />
+                    </Button>
+                </div>
+
+                {/* Collapsible Info Bar */}
+                <AnimatePresence>
+                    {showHeaderInfo && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="mt-3 grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
+                                <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200/50">
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Urgency Level</p>
+                                    <p className={`text-xs font-bold flex items-center gap-1.5 ${requestDetails?.urgency === 'Emergency' ? 'text-red-600' : 'text-amber-600'}`}>
+                                        <AlertTriangle size={12} /> {requestDetails?.urgency}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200/50">
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Status</p>
+                                    <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                        <div className={`h-2 w-2 rounded-full ${requestDetails?.status === 'completed' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} />
+                                        {requestDetails?.status?.replace('_', ' ')}
                                     </p>
                                 </div>
                             </div>
-                        )
-                    })
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </header>
+
+            {/* Messages Area */}
+            <main className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth bg-[#f8fafc]/50">
+                <div className="mx-auto max-w-2xl space-y-6">
+                    <AnimatePresence mode="popLayout">
+                        {messages.length === 0 ? (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex flex-col items-center justify-center py-20 text-center opacity-60"
+                            >
+                                <div className="mb-4 h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+                                    <Send size={40} />
+                                </div>
+                                <p className="text-sm font-bold text-slate-500">Secure Channel Established</p>
+                                <p className="mt-1 text-xs text-slate-400 max-w-[200px]">Send a message to coordinate the life-saving donation.</p>
+                            </motion.div>
+                        ) : (
+                            messages.map((msg, idx) => {
+                                const isMe = msg.senderId === currentUser?.uid;
+                                const showAvatar = !isMe && (idx === 0 || messages[idx-1].senderId !== msg.senderId);
+                                
+                                return (
+                                    <motion.div 
+                                        key={msg.id}
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        layout
+                                        className={`flex items-end gap-2.5 ${isMe ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        {!isMe && (
+                                            <div className={`h-8 w-8 shrink-0 overflow-hidden rounded-xl border border-slate-200 shadow-sm transition-opacity ${showAvatar ? 'opacity-100' : 'opacity-0'}`}>
+                                                <UserAvatar name={msg.senderName} />
+                                            </div>
+                                        )}
+                                        
+                                        <div className={`flex max-w-[80%] flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+                                            <div
+                                                className={`relative overflow-hidden rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all hover:shadow-md ${isMe
+                                                    ? 'bg-red-600 text-white selection:bg-red-300 selection:text-red-900'
+                                                    : 'bg-white text-slate-800 border border-slate-200/60'
+                                                    }`}
+                                                style={isMe ? { 
+                                                    background: "linear-gradient(135deg, #dc2626, #ef4444)", 
+                                                    borderBottomRightRadius: "4px" 
+                                                } : msg.system ? { 
+                                                    background: "rgba(59,130,246,0.05)", 
+                                                    border: "1px solid rgba(59,130,246,0.15)", 
+                                                    borderRadius: "12px",
+                                                    color: "#1e40af",
+                                                    fontStyle: "italic"
+                                                } : { 
+                                                    borderBottomLeftRadius: "4px" 
+                                                }}
+                                            >
+                                                {msg.type === 'location' && msg.coords ? (
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isMe ? 'bg-white/20' : 'bg-red-50 text-red-600'}`}>
+                                                                <MapPin size={18} />
+                                                            </div>
+                                                            <span className="font-bold">Live Location Shared</span>
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                const origin = userLocation ? `${userLocation.lat},${userLocation.lng}` : '';
+                                                                window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${msg.coords.lat},${msg.coords.lng}`, '_blank');
+                                                            }}
+                                                            className={`flex items-center gap-2 w-full rounded-xl text-xs font-bold transition-all active:scale-95 ${isMe ? 'bg-white text-red-600 border-none' : 'bg-red-600 text-white'}`}
+                                                        >
+                                                            <Navigation size={12} />
+                                                            Open Navigation
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                                                )}
+                                                
+                                                {/* Ambient Background Glow for My Messages */}
+                                                {isMe && (
+                                                    <div className="absolute -top-10 -right-10 h-20 w-20 bg-white/10 blur-2xl rounded-full" />
+                                                )}
+                                            </div>
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                                                {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        )}
+                    </AnimatePresence>
+                    <div ref={messagesEndRef} className="h-4" />
+                </div>
+            </main>
 
             {/* Input Area */}
-            {requestDetails && (currentUser?.uid === requestDetails.patientId || requestDetails.confirmedDonors?.some(d => d.donorId === currentUser?.uid) || requestDetails.donorId === currentUser?.uid) ? (
-                <div className="flex gap-2 p-3 mx-2 mb-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(24px)", border: "1px solid rgba(220,38,38,0.1)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
-                    <Button
-                        type="button"
-                        variant="ghost"
+            <footer className="flex-none border-t border-slate-200/60 bg-white/80 p-4 backdrop-blur-xl md:rounded-b-3xl md:mb-4 md:mx-4 md:shadow-lg">
+                <div className="mx-auto flex max-w-2xl gap-3">
+                    <motion.button
+                        whileHover={!isSharingLocation ? { scale: 1.05 } : {}}
+                        whileTap={!isSharingLocation ? { scale: 0.95 } : {}}
                         onClick={handleShareLocation}
+                        disabled={isSharingLocation}
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors shadow-sm ${isSharingLocation ? 'bg-red-50 text-red-500 cursor-not-allowed' : 'bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600'}`}
                         title="Share Location"
-                        className="rounded-lg aspect-square p-0 w-12 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50"
                     >
-                        <MapPin className="h-5 w-5" />
-                    </Button>
-                    <form onSubmit={handleSend} className="flex-1 flex gap-2">
-                            <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Type a message..."
-                                className="flex-1 px-5 py-3 rounded-xl focus:outline-none transition-all text-gray-800"
-                                style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.2)", outline: "none" }}
-                            />
-                            <Button type="submit" disabled={!newMessage.trim()} className="rounded-xl aspect-square p-0 w-12 flex items-center justify-center transition-transform hover:scale-105" style={{ background: newMessage.trim() ? "linear-gradient(135deg, #dc2626, #ef4444)" : "#e2e8f0", color: newMessage.trim() ? "#fff" : "#94a3b8", border: "none" }}>
-                            <Send className="h-5 w-5" />
-                        </Button>
-                    </form>
+                        {isSharingLocation ? <Loader2 size={22} className="animate-spin" /> : <MapPin size={22} />}
+                    </motion.button>
+                    
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                            placeholder="Coordinate help here..."
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-5 pr-14 text-sm text-slate-900 outline-none transition-all focus:border-red-400 focus:bg-white focus:shadow-md focus:shadow-red-500/5"
+                        />
+                        <div className="absolute right-1 top-1 bottom-1 p-1">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleSend()}
+                                disabled={!newMessage.trim() || isSending}
+                                className={`flex h-full aspect-square items-center justify-center rounded-xl transition-all ${(newMessage.trim() && !isSending) ? 'bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-500' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                            >
+                                {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                            </motion.button>
+                        </div>
+                    </div>
                 </div>
-            ) : (
-                <div className="flex gap-2 p-4 mx-2 mb-2 rounded-2xl items-center justify-center" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)" }}>
-                    <p className="text-sm font-bold text-amber-700 text-center">Chat is disabled for standby donors.</p>
-                </div>
-            )}
+            </footer>
         </div>
     );
 }

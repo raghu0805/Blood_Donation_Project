@@ -7,7 +7,7 @@ import LandingNavbar from '../components/LandingNavbar';
 import { motion, useInView, animate } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { calculateDonationEligibility } from '../lib/utils';
+import { calculateDonationEligibility, ALL_BLOOD_GROUPS } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
@@ -500,7 +500,7 @@ export default function LandingPage() {
                 ...requestData,
                 patientName: currentUser.displayName || "Blood Bank Center",
                 requesterType: 'admin',
-                location: { lat: 12.9716, lng: 77.5946 },
+                location: null, // Don't hardcode coordinates
                 isCenterRequest: true,
                 centerId: currentUser.uid
             });
@@ -664,7 +664,7 @@ export default function LandingPage() {
                                     <div className="text-sm text-gray-500">Live updates</div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(group => (
+                                    {ALL_BLOOD_GROUPS.map(group => (
                                         <Card key={group} className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300 transition-colors">
                                             <div className="p-4 flex flex-col items-center text-center">
                                                 <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-sm mb-2">
@@ -713,7 +713,7 @@ export default function LandingPage() {
                                         onChange={e => setRequestData({ ...requestData, bloodGroup: e.target.value })}
                                         className="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-red-500 outline-none"
                                     >
-                                        {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+                                        {ALL_BLOOD_GROUPS.map(bg => (
                                             <option key={bg} value={bg}>{bg}</option>
                                         ))}
                                     </select>

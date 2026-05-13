@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
-import { Shield, Lock } from 'lucide-react';
+import { Shield, Lock, Loader2 } from 'lucide-react';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState('');
@@ -17,8 +18,11 @@ export default function AdminLoginPage() {
         setError('');
         setLoading(true);
 
+        const trimmedEmail = email.trim();
+        const trimmedPassword = password.trim();
+
         try {
-            await loginWithEmail(email, password);
+            await loginWithEmail(trimmedEmail, trimmedPassword);
 
             // Prevent race conditions in ProtectedRoute
             setIsRoleSwitching(true);
@@ -36,12 +40,12 @@ export default function AdminLoginPage() {
             console.error("Login Error:", err);
 
             // Hackathon helper: specific auto-creation for the requested default admin
-            if (email === 'admin@gmail.com' && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
+            if (trimmedEmail === 'admin@gmail.com' && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
                 try {
                     console.log("Auto-creating default admin...");
                     // Using the signup function from context (valid here)
                     setIsRoleSwitching(true); // Ensure protection during auto-create too
-                    await signupWithEmail(email, password, { role: 'admin', name: 'System Admin' });
+                    await signupWithEmail(trimmedEmail, trimmedPassword, { role: 'admin', name: 'System Admin' });
                     navigate('/admin');
                     setTimeout(() => setIsRoleSwitching(false), 1000);
                     return;
@@ -63,6 +67,7 @@ export default function AdminLoginPage() {
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+            <LoadingOverlay isLoading={loading} message="Authenticating..." subMessage="Verifying admin credentials" />
             <div className="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700">
                 <div className="p-8">
                     <div className="flex justify-center mb-6">
@@ -115,7 +120,7 @@ export default function AdminLoginPage() {
                             disabled={loading}
                             className="w-full bg-red-600 hover:bg-red-700 text-white py-3 font-semibold shadow-lg shadow-red-900/20"
                         >
-                            {loading ? "Authenticating..." : "Access Dashboard"}
+                            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : "Access Dashboard"}
                         </Button>
                     </form>
                 </div>

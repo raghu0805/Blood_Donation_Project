@@ -1,10 +1,7 @@
 import { cn } from '../lib/utils';
-// We'll create utils next
+import { Loader2 } from 'lucide-react';
 
-
-
-
-export function Button({ className, variant = 'primary', size = 'default', children, ...props }) {
+export function Button({ className, variant = 'primary', size = 'default', isLoading = false, children, disabled, ...props }) {
     const baseStyles = "inline-flex items-center justify-center rounded-full font-bold transition-all active:scale-95 focus:outline-none disabled:opacity-50 disabled:pointer-events-none";
 
     const variants = {
@@ -23,9 +20,17 @@ export function Button({ className, variant = 'primary', size = 'default', child
     return (
         <button
             className={cn(baseStyles, variants[variant], sizes[size], className)}
+            disabled={disabled || isLoading}
             {...props}
         >
-            {children}
+            {isLoading ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="opacity-80">{children}</span>
+                </>
+            ) : (
+                children
+            )}
         </button>
     );
 }

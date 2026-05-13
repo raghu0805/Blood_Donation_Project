@@ -19,6 +19,8 @@ export function MCPProvider({ children }) {
     const [activeTrackingSession, setActiveTrackingSession] = useState(null);
     const [userLocation, setUserLocation] = useState(null);
     const [locationError, setLocationError] = useState(null);
+    const [isLoadingActive, setIsLoadingActive] = useState(true);
+    const [isLoadingMy, setIsLoadingMy] = useState(true);
 
     // Location Tracking Effect
     useEffect(() => {
@@ -31,8 +33,8 @@ export function MCPProvider({ children }) {
                 },
                 (error) => {
                     console.error("Error getting location:", error);
-                    setLocationError("Location access denied. Using default.");
-                    setUserLocation({ lat: 12.9716, lng: 77.5946 });
+                    setLocationError("Location access denied.");
+                    setUserLocation(null); // No fallback to Bangalore
                 }
             );
         }
@@ -86,6 +88,7 @@ export function MCPProvider({ children }) {
                 });
                 requests.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 setActiveRequests(requests);
+                setIsLoadingActive(false);
             });
 
             const qMyReqs = query(collection(db, 'requests'), where('patientId', '==', currentUser.uid));
@@ -93,6 +96,7 @@ export function MCPProvider({ children }) {
                 const reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 reqs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 setMyRequests(reqs);
+                setIsLoadingMy(false);
             });
         }
 
@@ -131,21 +135,9 @@ export function MCPProvider({ children }) {
     // === ENHANCED: Broadcast Request with Units Required ===
     const broadcastRequest = async (requestData) => {
         try {
-            let finalLocation = userLocation;
-            if (!finalLocation && navigator.geolocation) {
-                try {
-                    finalLocation = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                            (err) => reject(err), { timeout: 10000 }
-                        );
-                    });
-                    setUserLocation(finalLocation);
-                } catch (err) {
-                    console.warn("MCP: Explicit location fetch failed", err);
-                }
-            }
-            if (!finalLocation) finalLocation = { lat: 12.9716, lng: 77.5946 };
+            // Location is now guaranteed by LocationPicker (user-verified, map-confirmed)
+            // No fallback needed — the form enforces location selection before submission
+            const finalLocation = requestData.location || null;
 
             const unitsRequired = parseInt(requestData.unitsRequired) || 1;
 
@@ -154,6 +146,7 @@ export function MCPProvider({ children }) {
                 patientId: currentUser.uid,
                 patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
                 patientEmail: currentUser.email,
+                hospitalName: requestData.hospital || "Hospital",
                 status: 'pending',
                 unitsRequired: unitsRequired,
                 unitsFulfilled: 0,
@@ -165,7 +158,7 @@ export function MCPProvider({ children }) {
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 closedAt: null,
-                location: requestData.location || finalLocation
+                location: finalLocation
             });
 
             console.log("MCP: Request broadcasted to Firestore", docRef.id);
@@ -194,7 +187,7 @@ export function MCPProvider({ children }) {
                         urgency: requestData.urgency || "Emergency", unitsRequired,
                         patientName: currentUser.displayName || currentUser.name || "Anonymous Patient",
                         patientContact: currentUser.whatsappNumber || "Not Shared",
-                        location: requestData.location || finalLocation,
+                        location: finalLocation || null,
                         timestamp: new Date().toISOString(), donorsPool: allDonors
                     })
                 }).catch(console.error);
@@ -218,30 +211,38 @@ export function MCPProvider({ children }) {
     };
 
     // === ENHANCED: Accept Request with Multi-Donor Pool & Race-Condition Safety ===
-    const acceptRequest = async (requestId) => {
-        if (!currentUser) return;
+    const acceptRequest = async (requestId, preferredList = 'confirmed') => {
+        if (!currentUser) throw new Error("Must be logged in to accept requests");
+
         try {
+            const reqRef = doc(db, 'requests', requestId);
+            
             await runTransaction(db, async (transaction) => {
-                const requestRef = doc(db, 'requests', requestId);
-                const requestDoc = await transaction.get(requestRef);
-                if (!requestDoc.exists()) throw new Error("Request does not exist!");
+                const docSnap = await transaction.get(reqRef);
+                if (!docSnap.exists()) throw new Error("Request not found");
 
-                const data = requestDoc.data();
-
-                // Guard: prevent accepting closed/completed requests
-                if (['closed', 'completed'].includes(data.status)) {
-                    throw new Error("This request is no longer accepting donors.");
+                const data = docSnap.data();
+                if (data.status === 'completed' || data.status === 'closed') {
+                    throw new Error("This request is no longer active.");
                 }
 
                 const confirmed = data.confirmedDonors || [];
                 const reserve = data.reserveDonors || [];
                 const maxSlots = data.maxConfirmedSlots || data.unitsRequired || 1;
+                const reserveSlots = (data.reserveRequired !== undefined && data.reserveRequired > 0) ? data.reserveRequired : 5;
 
                 // Guard: prevent duplicate donor assignment
                 const alreadyConfirmed = confirmed.some(d => d.donorId === currentUser.uid);
                 const alreadyReserve = reserve.some(d => d.donorId === currentUser.uid);
                 if (alreadyConfirmed || alreadyReserve) {
                     throw new Error("You have already responded to this request.");
+                }
+
+                if (preferredList === 'confirmed' && confirmed.length >= maxSlots) {
+                    throw new Error("The Reserved List is currently full.");
+                }
+                if (preferredList === 'reserve' && reserve.length >= reserveSlots) {
+                    throw new Error("The Emergency List is currently full.");
                 }
 
                 // Calculate priority score
@@ -262,40 +263,26 @@ export function MCPProvider({ children }) {
                     acceptedAt: new Date().toISOString(),
                     priority: priority,
                     patientCode: patientCode,
-                    donorCode: donorCode
+                    donorCode: donorCode,
+                    poolType: preferredList
                 };
 
                 const historyEntry = {
                     donorId: currentUser.uid,
                     donorName: currentUser.displayName || currentUser.email,
                     action: 'accepted',
+                    poolType: preferredList,
                     timestamp: new Date().toISOString()
                 };
 
-                // Combine all current donors with the new one
-                const allDonors = [...confirmed, ...reserve, donorEntry];
-
-                // Sort ALL by priority (descending)
-                allDonors.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-
-                // Re-allocate pools dynamically based on priority
-                const newConfirmed = [];
-                const newReserve = [];
-
-                for (let i = 0; i < allDonors.length; i++) {
-                    const d = allDonors[i];
-                    if (i < maxSlots) {
-                        d.poolType = 'confirmed';
-                        newConfirmed.push(d);
-                    } else {
-                        d.poolType = 'reserve';
-                        newReserve.push(d);
-                    }
+                if (preferredList === 'reserve') {
+                    reserve.push(donorEntry);
+                } else {
+                    confirmed.push(donorEntry);
                 }
 
-                // Determine where the current user ended up for their history record
-                const userPoolType = newConfirmed.some(d => d.donorId === currentUser.uid) ? 'confirmed' : 'reserve';
-                historyEntry.poolType = userPoolType;
+                const newConfirmed = [...confirmed].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+                const newReserve = [...reserve].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
                 let newStatus = data.status;
                 if (newConfirmed.length >= maxSlots) {
@@ -323,7 +310,7 @@ export function MCPProvider({ children }) {
                     updateData.acceptedAt = serverTimestamp();
                 }
 
-                transaction.update(requestRef, updateData);
+                transaction.update(reqRef, updateData);
 
                 // Update donor's consent record
                 transaction.update(doc(db, 'users', currentUser.uid), {
@@ -697,6 +684,7 @@ export function MCPProvider({ children }) {
 
     const value = {
         availableDonors, activeRequests, myRequests, geminiAnalysis, activeTrackingSession,
+        isLoadingActive, isLoadingMy,
         findMatches, requestGeminiAnalysis, startTracking,
         broadcastRequest, toggleDonorAvailability, acceptRequest,
         cancelDonorFromRequest, moveDonorToPool, sendMessage, completeRequest,

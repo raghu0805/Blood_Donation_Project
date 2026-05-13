@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Bell, Search, Droplets, Heart, Loader2 } from "lucide-react";
 import LandingNavbar from "../components/LandingNavbar";
+import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../contexts/AuthContext';
 
 const fadeUp = {
@@ -35,6 +36,7 @@ export default function RoleSelection() {
 
   return (
     <div className="min-h-screen font-sans antialiased" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
+      <LoadingOverlay isLoading={isSelecting} message="Setting Up Your Dashboard..." subMessage="Configuring your experience" />
       <LandingNavbar activePath="/role-selection" />
 
       <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col items-center justify-center px-6 pt-28 pb-16">

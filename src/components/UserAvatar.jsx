@@ -15,11 +15,13 @@ const UserAvatar = ({ photoURL, name, className = "h-full w-full", style = {}, t
     setImgError(false);
   }, [photoURL]);
 
-  // Handle case where photoURL might be a string "null" or "undefined" from Firebase/localStorage
+  // Enhanced validation for photoURL
   const isValidPhotoURL = photoURL && 
-                         photoURL !== "" && 
+                         typeof photoURL === 'string' &&
+                         photoURL.trim().length > 0 && 
                          photoURL !== "null" && 
-                         photoURL !== "undefined";
+                         photoURL !== "undefined" &&
+                         !photoURL.startsWith('data:image/png;base64,null');
 
   const initials = (name || "U").charAt(0).toUpperCase();
 

@@ -5,6 +5,12 @@ export function cn(...inputs) {
     return twMerge(clsx(inputs))
 }
 
+export const ALL_BLOOD_GROUPS = [
+    "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-",
+    "A1+", "A1-", "A2+", "A2-", "A1B+", "A1B-", "A2B+", "A2B-",
+    "Bombay Blood Group", "INRA", "Rh-null"
+];
+
 export function calculateDonationEligibility(lastDonated, gender) {
     if (!lastDonated) return { eligible: true, message: null, percentage: 100, daysRemaining: 0 };
 
