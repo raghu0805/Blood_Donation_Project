@@ -23,10 +23,18 @@ function EligibilityBadge({ age, weight, lastDonated, gender }) {
   const ageOk = age >= 18 && age <= 65;
   const weightOk = weight >= 50;
   
-  const { eligible: donationOk } = calculateDonationEligibility(lastDonated, gender);
+  const { eligible: donationOk, daysRemaining } = calculateDonationEligibility(lastDonated, gender);
   const monthsAgo = lastDonated ? (Date.now() - new Date(lastDonated)) / (1000 * 60 * 60 * 24 * 30) : 999;
   
   const eligible = ageOk && weightOk && donationOk;
+
+  const daysAgo = lastDonated ? (Date.now() - new Date(lastDonated)) / (1000 * 60 * 60 * 24) : 999;
+
+  const getDonationLabel = () => {
+      if (!lastDonated) return "Never donated";
+      if (Math.floor(daysAgo) < 30) return `${Math.floor(daysAgo)}d ago`;
+      return `${Math.floor(monthsAgo)}mo ago`;
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -39,7 +47,7 @@ function EligibilityBadge({ age, weight, lastDonated, gender }) {
         {[
           { label: `Age ${age || "?"}`, ok: ageOk, hint: "18–65 yrs" },
           { label: `${weight || "?"}kg`, ok: weightOk, hint: "Min 50kg" },
-          { label: lastDonated ? `${Math.floor(monthsAgo)}mo ago` : "Never donated", ok: donationOk, hint: "Required Gap" },
+          { label: getDonationLabel(), ok: donationOk, hint: !lastDonated ? "Required Gap" : (donationOk ? "Gap Met" : `Wait ${daysRemaining} Days`) },
         ].map(({ label, ok, hint }) => (
           <span key={hint} className="rounded-xl px-3 py-1 text-xs font-semibold"
             style={{ background: ok ? "rgba(34,197,94,0.1)" : "rgba(220,38,38,0.1)", color: ok ? "#16a34a" : "#dc2626" }}>
@@ -61,6 +69,7 @@ export default function ProfilePage() {
     const [uploading, setUploading] = useState(false);
     const [isEditing, setIsEditing] = useState(false); // Used primarily by Admin now
     const [isSaving, setIsSaving] = useState(false);
+    const [activeDetailsTab, setActiveDetailsTab] = useState(null); // 'saved' or 'gained'
 
     const [form, setForm] = useState({
         fullName: "",
@@ -108,10 +117,26 @@ export default function ProfilePage() {
             
             if (userRole === 'admin') {
                 if (!currentUser.displayName || !currentUser.whatsappNumber) setIsEditing(true);
-                fetchStats();
             }
+            fetchStats();
         }
     }, [currentUser, userRole]);
+
+    useEffect(() => {
+        if (donationsMade.length > 0) {
+            const latestDonation = donationsMade[0];
+            if (latestDonation.completedAt) {
+                try {
+                    const d = latestDonation.completedAt.seconds ? new Date(latestDonation.completedAt.seconds * 1000) : new Date(latestDonation.completedAt);
+                    if (!isNaN(d.getTime())) {
+                        setForm(prev => ({ ...prev, lastDonated: d.toISOString().split('T')[0] }));
+                    }
+                } catch (e) {
+                    console.error("Error parsing donationsMade date:", e);
+                }
+            }
+        }
+    }, [donationsMade]);
 
     const handleAvatar = async (e) => {
         const file = e.target.files[0];
@@ -131,28 +156,39 @@ export default function ProfilePage() {
     };
 
     const fetchStats = async () => {
-        if (!currentUser || userRole !== 'admin') return;
+        if (!currentUser) return;
         setLoadingStats(true);
         try {
-            const madeQuery = query(collection(db, 'requests'), where('donorId', '==', currentUser.uid), where('status', '==', 'completed'));
-            const madeSnap = await getDocs(madeQuery);
-            const made = madeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            made.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
-            setDonationsMade(made);
+            if (userRole === 'admin') {
+                const madeQuery = query(collection(db, 'requests'), where('donorId', '==', currentUser.uid), where('status', '==', 'completed'));
+                const madeSnap = await getDocs(madeQuery);
+                const made = madeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                made.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+                setDonationsMade(made);
 
-            const intakesQuery = query(collection(db, 'users', currentUser.uid, 'intakes'), orderBy('completedAt', 'desc'));
-            const networkQuery = query(collection(db, 'requests'), where('status', '==', 'completed'));
-            const [intakesSnap, networkSnap] = await Promise.all([getDocs(intakesQuery), getDocs(networkQuery)]);
+                const intakesQuery = query(collection(db, 'users', currentUser.uid, 'intakes'), orderBy('completedAt', 'desc'));
+                const networkQuery = query(collection(db, 'requests'), where('status', '==', 'completed'));
+                const [intakesSnap, networkSnap] = await Promise.all([getDocs(intakesQuery), getDocs(networkQuery)]);
 
-            const intakes = intakesSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'manual' }));
-            const network = networkSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'network' })).filter(d => d.donorId !== currentUser.uid);
+                const intakes = intakesSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'manual' }));
+                const network = networkSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'network' })).filter(d => d.donorId !== currentUser.uid);
 
-            let receivedData = [...intakes, ...network];
-            receivedData.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
-            setDonationsReceived(receivedData);
+                let receivedData = [...intakes, ...network];
+                receivedData.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+                setDonationsReceived(receivedData);
+            } else {
+                const madeQuery = query(collection(db, 'users', currentUser.uid, 'donations'), orderBy('completedAt', 'desc'));
+                const madeSnap = await getDocs(madeQuery);
+                setDonationsMade(madeSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
+                const receivedQuery = query(collection(db, 'requests'), where('patientId', '==', currentUser.uid), where('status', '==', 'completed'));
+                const receivedSnap = await getDocs(receivedQuery);
+                const received = receivedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                received.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+                setDonationsReceived(received);
+            }
         } catch (err) {
-            console.error("Error fetching admin stats:", err);
+            console.error("Error fetching stats:", err);
         } finally {
             setLoadingStats(false);
         }
@@ -384,6 +420,8 @@ export default function ProfilePage() {
     // --------------------------------------------------------------------------------------------------------------------------
     // STANDARD USER RENDER (DONOR/PATIENT)
     // --------------------------------------------------------------------------------------------------------------------------
+    const isLastDonatedImmutable = donationsMade.length > 0 || !!currentUser?.lastDonated;
+
     return (
         <div className="min-h-screen font-sans antialiased" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
             <LoadingOverlay isLoading={isSaving} message="Saving Profile..." subMessage="Updating your information" />
@@ -439,6 +477,55 @@ export default function ProfilePage() {
                                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} disabled={uploading} />
                             </label>
                         </div>
+                    </motion.div>
+
+                    {/* Impact Details */}
+                    <motion.div variants={fadeUp} custom={3.5} className="rounded-3xl p-6"
+                        style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1px solid rgba(212,160,23,0.2)", boxShadow: "0 4px 24px rgba(212,160,23,0.08)" }}>
+                        <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">Your Impact</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div onClick={() => setActiveDetailsTab(activeDetailsTab === 'saved' ? null : 'saved')} className={`flex flex-col items-center justify-center p-4 rounded-2xl cursor-pointer transition-all ${activeDetailsTab === 'saved' ? 'ring-2 ring-red-400' : 'hover:bg-red-50'}`} style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.1)" }}>
+                                <Heart className="text-red-500 mb-2" size={24} />
+                                <span className="text-3xl font-black text-gray-900">{loadingStats ? (currentUser?.livesSaved || 0) : Math.max(currentUser?.livesSaved || 0, donationsMade.length)}</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">Lives Saved</span>
+                            </div>
+                            <div onClick={() => setActiveDetailsTab(activeDetailsTab === 'gained' ? null : 'gained')} className={`flex flex-col items-center justify-center p-4 rounded-2xl cursor-pointer transition-all ${activeDetailsTab === 'gained' ? 'ring-2 ring-green-400' : 'hover:bg-green-50'}`} style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.1)" }}>
+                                <Droplets className="text-green-500 mb-2" size={24} />
+                                <span className="text-3xl font-black text-gray-900">{loadingStats ? (currentUser?.unitsReceived || 0) : Math.max(currentUser?.unitsReceived || 0, donationsReceived.length)}</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">Blood Gained</span>
+                            </div>
+                        </div>
+
+                        {/* Render Active Details Tab */}
+                        {activeDetailsTab && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 pt-4 border-t border-slate-200">
+                                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    {activeDetailsTab === 'saved' ? <><Heart size={16} className="text-red-500"/> Blood Donated History</> : <><Droplets size={16} className="text-green-500"/> Blood Received History</>}
+                                </h3>
+                                
+                                {loadingStats ? (
+                                    <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-slate-400" size={20} /></div>
+                                ) : (activeDetailsTab === 'saved' ? donationsMade : donationsReceived).length === 0 ? (
+                                    <p className="text-xs text-slate-500 italic py-2">No history found.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                        {(activeDetailsTab === 'saved' ? donationsMade : donationsReceived).map(item => (
+                                            <div key={item.id} className="flex justify-between items-center p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900">{activeDetailsTab === 'saved' ? (item.patientName || "Anonymous Patient") : (item.donorName || "Anonymous Donor")}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">
+                                                        {item.completedAt?.seconds ? new Date(item.completedAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+                                                    </p>
+                                                </div>
+                                                <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${activeDetailsTab === 'saved' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                                                    {item.bloodGroup}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
                     </motion.div>
 
                     {/* Basic Info */}
@@ -523,13 +610,14 @@ export default function ProfilePage() {
                             {/* Last Donated */}
                             <div>
                                 <label className="mb-1.5 block text-xs font-semibold text-slate-500">Last Donated Date</label>
-                                <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all focus-within:border-red-400" style={{ background: "#f8fafc", borderColor: "rgba(148,163,184,0.2)" }}>
-                                    <Droplets size={15} className="text-red-400 shrink-0" />
+                                <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all ${isLastDonatedImmutable ? 'opacity-80 cursor-not-allowed' : 'focus-within:border-red-400'}`} style={{ background: isLastDonatedImmutable ? "#f1f5f9" : "#f8fafc", borderColor: "rgba(148,163,184,0.2)" }}>
+                                    <Droplets size={15} className={`${isLastDonatedImmutable ? 'text-slate-400' : 'text-red-400'} shrink-0`} />
                                     <input value={form.lastDonated} onChange={(e) => set("lastDonated", e.target.value)}
                                         type="date"
-                                        className="w-full bg-transparent text-sm text-gray-800 outline-none" />
+                                        disabled={isLastDonatedImmutable}
+                                        className={`w-full bg-transparent text-sm outline-none ${isLastDonatedImmutable ? 'text-slate-500 cursor-not-allowed' : 'text-gray-800'}`} />
                                 </div>
-                                <p className="mt-1.5 text-xs text-slate-400">Leave empty if you've never donated before.</p>
+                                <p className="mt-1.5 text-xs text-slate-400">{isLastDonatedImmutable ? "This date is automatically tracked by the platform and cannot be manually edited." : "Leave empty if you've never donated before."}</p>
                             </div>
 
                             {/* Eligibility checker */}

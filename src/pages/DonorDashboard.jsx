@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +43,29 @@ export default function DonorDashboard() {
     const [pendingAvailability, setPendingAvailability] = useState(null);
     const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
     const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {}, variant: 'danger' });
+    const [donationHistory, setDonationHistory] = useState([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+    useEffect(() => {
+        if (!currentUser?.uid) return;
+        const fetchHistory = async () => {
+            setIsLoadingHistory(true);
+            try {
+                const q = query(
+                    collection(db, 'users', currentUser.uid, 'donations'),
+                    orderBy('completedAt', 'desc')
+                );
+                const snapshot = await getDocs(q);
+                const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setDonationHistory(history);
+            } catch (err) {
+                console.error("Failed to fetch donation history", err);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+        fetchHistory();
+    }, [currentUser]);
 
     const { eligible, message, percentage, daysRemaining, nextDate } = calculateDonationEligibility(currentUser?.lastDonated, currentUser?.gender);
 
@@ -137,12 +162,6 @@ export default function DonorDashboard() {
                             Welcome back, {userName.split(" ")[0] || "Hero"}. You're making a difference.
                         </motion.p>
                         </div>
-                        <motion.button type="button" variants={fadeUp} custom={3}
-                        onTap={() => navigate('/profile')}
-                        whileHover={{ scale: 1.04, boxShadow: "0 8px 30px rgba(220,38,38,0.25)" }} whileTap={{ scale: 0.97 }}
-                        className="flex items-center gap-2.5 self-start rounded-2xl bg-red-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition-colors hover:bg-red-500 md:self-auto">
-                        <TrendingUp size={16} /> View Your Impact
-                        </motion.button>
                     </div>
                 </motion.div>
 
@@ -260,98 +279,57 @@ export default function DonorDashboard() {
                     {/* Right column */}
                     <div className="flex flex-col gap-6">
 
-                        {/* Location Panel */}
+                        {/* Donation History Panel */}
                         <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible" className="rounded-3xl p-6"
                             style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
-                            <div className="mb-4 flex items-center justify-between">
+                            <div className="mb-5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                <Navigation size={16} className="text-red-500" />
-                                <p className="text-sm font-bold text-gray-900">Your Location</p>
+                                    <Activity size={18} className="text-red-500" />
+                                    <p className="text-sm font-bold text-gray-900">Donation History</p>
                                 </div>
-                                <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold text-green-600" style={{ background: "rgba(34,197,94,0.08)" }}>
-                                <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Live
+                                <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-600" style={{ background: "rgba(148,163,184,0.1)" }}>
+                                    {donationHistory.length} Total
                                 </span>
                             </div>
-                            {/* Map placeholder */}
-                            <div className="relative mb-4 overflow-hidden rounded-2xl" style={{ height: 140, background: "linear-gradient(135deg, #f1f5f9, #e2e8f0)" }}>
-                                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.3) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="relative">
-                                    <span className="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-red-400 opacity-40" />
-                                    <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-red-600 shadow-lg">
-                                        <MapPin size={14} className="text-white" />
-                                    </div>
-                                    </div>
-                                    <span className="rounded-xl bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow">Live Tracking</span>
-                                </div>
-                                </div>
-                            </div>
-                            <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                                onTap={() => navigate('/profile')}
-                                className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white"
-                                style={{ background: "linear-gradient(135deg, #d4a017, #f59e0b)", boxShadow: "0 4px 16px rgba(212,160,23,0.25)" }}>
-                                <Navigation size={14} /> Update Location
-                            </motion.button>
-                        </motion.div>
 
-                        {/* Impact Panel */}
-                        <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible" className="rounded-3xl p-6"
-                            style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(212,160,23,0.2)", boxShadow: "0 4px 24px rgba(212,160,23,0.08)" }}>
-                            <div className="mb-5 flex items-center gap-2">
-                                <Award size={18} className="text-amber-500" />
-                                <p className="text-sm font-bold text-gray-900">Your Impact</p>
-                            </div>
-                            <div className="flex flex-col gap-4">
-                                {[
-                                { label: "Last Donation", value: currentUser?.lastDonated ? new Date(currentUser.lastDonated?.seconds ? currentUser.lastDonated.seconds * 1000 : currentUser.lastDonated).toLocaleDateString() : "Never", icon: Clock, color: "#94a3b8" },
-                                { label: "Lives Saved", value: currentUser?.livesSaved?.toString() || "0", icon: Heart, color: "#dc2626" },
-                                { label: "Total Donations", value: currentUser?.livesSaved?.toString() || "0", icon: Droplets, color: "#d4a017" },
-                                ].map(({ label, value, icon: Icon, color }) => (
-                                <div key={label} className="flex items-center justify-between rounded-2xl px-4 py-3"
-                                    style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.12)" }}>
-                                    <div className="flex items-center gap-2.5">
-                                    <Icon size={15} style={{ color }} />
-                                    <span className="text-sm text-slate-500">{label}</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-900">{value}</span>
-                                </div>
-                                ))}
-                            </div>
-                        </motion.div>
-
-                        {/* Quick Actions */}
-                        <motion.div variants={fadeUp} custom={5} initial="hidden" animate="visible" className="rounded-3xl p-6"
-                            style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
-                            <p className="mb-4 text-sm font-bold text-gray-900">Quick Actions</p>
                             <div className="flex flex-col gap-3">
-                                {[
-                                { label: "Update Blood Group", icon: Droplets, color: "#dc2626", path: "/profile" },
-                                { label: "Update Location", icon: MapPin, color: "#d4a017", path: "/profile" },
-                                { label: "View Notifications", icon: Bell, color: "#dc2626", path: "/donor-dashboard" },
-                                { label: "Donation History", icon: Activity, color: "#d4a017", path: "/profile" },
-                                ].map(({ label, icon: Icon, color, path }) => (
-                                <motion.button type="button" key={label} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}
-                                    onTap={() => navigate(path)}
-                                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-left transition-all"
-                                    style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.12)" }}>
-                                    <div className="flex items-center gap-2.5">
-                                    <Icon size={15} style={{ color }} />
-                                    <span className="text-sm font-medium text-slate-600">{label}</span>
+                                {isLoadingHistory ? (
+                                    <div className="py-8 flex justify-center">
+                                        <LoadingSpinner size="sm" />
                                     </div>
-                                    <ChevronRight size={14} className="text-slate-300" />
-                                </motion.button>
-                                ))}
+                                ) : donationHistory.length === 0 ? (
+                                    <div className="py-6 text-center">
+                                        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                                            <Heart size={18} className="text-slate-400" />
+                                        </div>
+                                        <p className="text-sm text-slate-500">No donations yet. Your future saves lives!</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {donationHistory.map((donation) => (
+                                            <div key={donation.id} className="flex flex-col gap-2 rounded-2xl p-4 transition-all hover:bg-slate-50"
+                                                style={{ border: "1px solid rgba(148,163,184,0.12)" }}>
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-bold text-gray-900">{donation.patientName}</p>
+                                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-xs font-black text-red-600">
+                                                        {donation.bloodGroup}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between mt-1 text-xs text-slate-500 font-medium">
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock size={12} className="text-slate-400" />
+                                                        {donation.completedAt ? new Date(donation.completedAt.seconds ? donation.completedAt.seconds * 1000 : donation.completedAt).toLocaleDateString() : 'Unknown Date'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-green-600">
+                                                        <CheckCircle size={12} />
+                                                        Completed
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        </motion.div>
-
-                        {/* Blood Group Badge */}
-                        <motion.div variants={fadeUp} custom={6} initial="hidden" animate="visible"
-                            className="rounded-3xl p-6 text-center shadow-lg"
-                            style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 8px 32px rgba(220,38,38,0.25)" }}>
-                            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-red-100">Your Blood Group</p>
-                            <p className="text-6xl font-black text-white" style={{ fontFamily: "var(--font-heading)" }}>{currentUser?.bloodGroup || "N/A"}</p>
-                            <p className="mt-2 text-xs text-red-100">High Demand Type</p>
                         </motion.div>
                     </div>
                 </div>

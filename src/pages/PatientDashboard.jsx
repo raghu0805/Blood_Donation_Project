@@ -313,8 +313,8 @@ export default function PatientDashboard() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="flex flex-col gap-6 lg:col-span-2">
+        <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
+          <div className="flex flex-col gap-6">
 
             <motion.div variants={fadeUp} custom={2} initial="hidden" animate="visible" className="rounded-3xl p-6"
               style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
@@ -621,52 +621,6 @@ export default function PatientDashboard() {
                 {availableDonors.length === 0 && (
                    <p className="text-xs text-gray-400 italic py-2">No active offline donors in your radius.</p>
                 )}
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right column */}
-          <div className="flex flex-col gap-6">
-
-            {/* Request Stats */}
-            <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible" className="rounded-3xl p-6"
-              style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(212,160,23,0.2)", boxShadow: "0 4px 24px rgba(212,160,23,0.08)" }}>
-              <p className="mb-4 text-sm font-bold text-gray-900">Request Overview</p>
-              <div className="flex flex-col gap-3">
-                {[
-                  { label: "Active Requests", value: myRequests.filter(r => r.status !== 'completed').length, color: "#dc2626" },
-                  { label: "Donors Available", value: availableDonors.length, color: "#d4a017" },
-                  { label: "Avg Response", value: "< 5 min", color: "#22c55e" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="flex items-center justify-between rounded-2xl px-4 py-3"
-                    style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.12)" }}>
-                    <span className="text-sm text-slate-500">{label}</span>
-                    <span className="text-sm font-bold" style={{ color }}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* AI Context Map if Any */}
-            {geminiAnalysis && (
-                <motion.div variants={fadeUp} custom={5} initial="hidden" animate="visible" className="rounded-3xl p-6"
-                    style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(99,102,241,0.05))", border: "1.5px solid rgba(59,130,246,0.2)", boxShadow: "0 4px 24px rgba(59,130,246,0.1)" }}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-500 flex items-center gap-1"><Sparkles size={12} /> Gemini Strategy</p>
-                    <p className="text-sm text-slate-700 font-medium leading-relaxed">{geminiAnalysis}</p>
-                </motion.div>
-            )}
-
-            {/* Quick Helper Tips */}
-            <motion.div variants={fadeUp} custom={6} initial="hidden" animate="visible" className="rounded-3xl p-6 flex-1"
-              style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
-              <p className="mb-4 text-sm font-bold text-gray-900">While You Wait</p>
-              <div className="flex flex-col gap-2.5">
-                {["Keep your phone nearby for donor calls", "Confirm hospital address is correct", "Have patient ID ready"].map((tip) => (
-                  <div key={tip} className="flex items-start gap-2.5">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-[10px] font-bold">✓</span>
-                    <span className="text-xs text-slate-500">{tip}</span>
-                  </div>
-                ))}
               </div>
             </motion.div>
           </div>
