@@ -438,7 +438,7 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0, setGlobalC
                 <div className="flex flex-col items-end gap-2">
                 <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold" style={{ color: style.text, background: `${style.border}40` }}>
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: style.dot }} />
-                    {isConfirmedByMe ? "RESERVED" : isReserveByMe ? "EMERGENCY" : isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
+                    {isConfirmedByMe ? "PRIMARY DONOR" : isReserveByMe ? "SECONDARY DONOR" : isAcceptedByMe ? "ACCEPTED" : (request.urgency || "Request")}
                 </span>
                 {unitsReq > 1 && (
                     <span className="text-[10px] text-slate-400 flex items-center gap-1">
@@ -457,25 +457,19 @@ function RequestCard({ request, eligible, recoveryMessage, delay = 0, setGlobalC
             
             <div className="mt-4 flex gap-2">
                 {isAcceptedByMe ? (
-                    <div className="flex gap-2 flex-1">
-                        {(isConfirmedByMe || (request.status === 'accepted' && request.donorId === currentUser?.uid)) ? (
-                            <>
-                                <motion.button type="button" onTap={() => setVerifyTarget({ req: request, donor: confirmed.find(d => d.donorId === currentUser.uid) || {donorId: currentUser.uid, patientCode: 'P-1234', donorCode: 'D-5678'} })}
-                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors bg-blue-600 hover:bg-blue-700">
-                                    <ShieldCheck size={12} /> Verify
-                                </motion.button>
-                                <motion.button type="button" onTap={() => navigate(`/chat/${request.id}`)}
-                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white transition-colors bg-green-600 hover:bg-green-700">
-                                    <MessageCircle size={12} /> Chat
-                                </motion.button>
-                            </>
-                        ) : (
-                            <div className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-amber-700 bg-amber-100/50 border border-amber-200/50">
-                                <Clock size={12} /> On Standby
-                            </div>
+                    <div className="flex gap-2 flex-1 flex-wrap">
+                        {isConfirmedByMe && (
+                            <motion.button type="button" onTap={() => setVerifyTarget({ req: request, donor: confirmed.find(d => d.donorId === currentUser.uid) || {donorId: currentUser.uid, patientCode: 'P-1234', donorCode: 'D-5678'} })}
+                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold text-white transition-colors bg-blue-600 hover:bg-blue-700 min-w-[90px]">
+                                <ShieldCheck size={12} /> Verify
+                            </motion.button>
                         )}
+                        <motion.button type="button" onTap={() => navigate(`/chat/${request.id}/${currentUser.uid}`)}
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold text-white transition-colors bg-green-600 hover:bg-green-700 min-w-[90px]">
+                            <MessageCircle size={12} /> Chat
+                        </motion.button>
                         <motion.button type="button" onTap={async () => {
                                 if (withdrawing) return;
                                 setGlobalConfirm({
