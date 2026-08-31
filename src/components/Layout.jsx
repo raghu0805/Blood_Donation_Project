@@ -21,7 +21,8 @@ export default function Layout() {
     const isRoleSelection = location.pathname === '/role-selection' && userRole !== 'admin';
     const isPatientDashboard = location.pathname === '/patient-dashboard';
     const isAboutPage = location.pathname === '/about';
-    const isLayoutSuppressed = isFullScreenPublicRoute || isDonorDashboard || isProfilePage || isRoleSelection || isPatientDashboard || isAboutPage;
+    const isAdminRoute = location.pathname.startsWith('/admin') || userRole === 'admin';
+    const isLayoutSuppressed = isFullScreenPublicRoute || isDonorDashboard || isProfilePage || isRoleSelection || isPatientDashboard || isAboutPage || isAdminRoute;
     
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 

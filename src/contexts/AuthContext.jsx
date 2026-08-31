@@ -201,20 +201,21 @@ export function AuthProvider({ children }) {
         return signOut(auth);
     };
 
-    const assignRole = async (role) => {
-        if (!currentUser) return;
+    const assignRole = async (role, targetUid = null) => {
+        const uid = targetUid || currentUser?.uid || auth.currentUser?.uid;
+        if (!uid) return;
 
-        // This function is still useful for initial assignment
-        // For switching, we rely on Layout handling the 'switching' state mostly
-        await setDoc(doc(db, "users", currentUser.uid), {
-            email: currentUser.email,
+        const email = currentUser?.email || auth.currentUser?.email || '';
+
+        await setDoc(doc(db, "users", uid), {
+            email: email,
             role: role,
-            isAvailable: role === 'donor' ? true : false, // Default availability
+            isAvailable: role === 'donor' ? true : false,
             createdAt: new Date().toISOString()
         }, { merge: true });
 
         setUserRole(role);
-        setCurrentUser(prev => ({ ...prev, role }));
+        setCurrentUser(prev => prev ? { ...prev, role } : { uid, email, role });
     };
 
     const value = {

@@ -29,7 +29,7 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm, isSubmitting
     const [checkedItems, setCheckedItems] = useState({});
     const [canSubmit, setCanSubmit] = useState(false);
     const [expandedSection, setExpandedSection] = useState(0);
-    const [preferredList, setPreferredList] = useState('confirmed'); // 'confirmed' (Reserved) or 'reserve' (Emergency)
+    const [preferredList, setPreferredList] = useState('reserve'); // 'reserve' (Secondary) or 'confirmed' (Primary)
 
     useEffect(() => {
         if (isOpen) {
@@ -326,26 +326,6 @@ export function DonorDeclarationModal({ isOpen, onClose, onConfirm, isSubmitting
                     {/* Footer */}
                     <div className="shrink-0 px-6 py-4 flex flex-col gap-3"
                         style={{ background: "rgba(248,250,252,0.8)", borderTop: "1px solid rgba(148,163,184,0.1)" }}>
-
-                        <div className="mb-2">
-                            <p className="text-xs font-bold text-slate-700 mb-2">Preferred Donation List:</p>
-                            <div className="flex gap-3">
-                                <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold cursor-pointer transition-all ${preferredList === 'confirmed' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-slate-500 border-slate-200'} border`}
-                                    onClick={() => setPreferredList('confirmed')}>
-                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${preferredList === 'confirmed' ? 'border-red-500' : 'border-slate-300'}`}>
-                                        {preferredList === 'confirmed' && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
-                                    </div>
-                                    Reserved List (Primary)
-                                </label>
-                                <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold cursor-pointer transition-all ${preferredList === 'reserve' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-slate-500 border-slate-200'} border`}
-                                    onClick={() => setPreferredList('reserve')}>
-                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${preferredList === 'reserve' ? 'border-amber-500' : 'border-slate-300'}`}>
-                                        {preferredList === 'reserve' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                                    </div>
-                                    Emergency List (Standby)
-                                </label>
-                            </div>
-                        </div>
 
                         <p className="text-[10px] text-slate-400 text-center leading-relaxed">
                             By confirming, I certify that all the above declared information is true and accurate to the best of my knowledge.

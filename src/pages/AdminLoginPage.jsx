@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { Shield, Lock, Loader2 } from 'lucide-react';
+import { db, auth } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function AdminLoginPage() {
@@ -10,7 +12,7 @@ export default function AdminLoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { loginWithEmail, assignRole, signupWithEmail, setIsRoleSwitching } = useAuth();
+    const { currentUser, loginWithEmail, assignRole, signupWithEmail, setIsRoleSwitching, logout } = useAuth();
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
@@ -21,46 +23,64 @@ export default function AdminLoginPage() {
         const trimmedEmail = email.trim();
         const trimmedPassword = password.trim();
 
+        if (trimmedPassword.length < 6) {
+            setError('Password must be at least 6 characters long.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            await loginWithEmail(trimmedEmail, trimmedPassword);
-
-            // Prevent race conditions in ProtectedRoute
             setIsRoleSwitching(true);
-            await assignRole('admin'); // Ensure role is enforced
 
-            navigate('/admin');
+            // Force sign out existing session first if needed
+            if (currentUser) {
+                await logout();
+            }
 
-            // Allow time for state to settle
+            let userCred;
+            try {
+                userCred = await loginWithEmail(trimmedEmail, trimmedPassword);
+            } catch (loginErr) {
+                // If admin account doesn't exist yet, attempt auto-creation
+                console.log("Login failed, attempting auto-creation...", loginErr);
+                try {
+                    userCred = await signupWithEmail(trimmedEmail, trimmedPassword, { 
+                        role: 'admin', 
+                        displayName: 'System Admin',
+                        whatsappNumber: '1234567890' 
+                    });
+                } catch (signupErr) {
+                    if (signupErr.code === 'auth/email-already-in-use') {
+                        throw new Error('Incorrect password for this admin email. Please check your credentials.');
+                    }
+                    throw signupErr;
+                }
+            }
+
+            const authenticatedUid = userCred?.user?.uid || auth.currentUser?.uid;
+            if (authenticatedUid) {
+                // Explicitly set admin user document in Firestore to prevent race conditions
+                await setDoc(doc(db, "users", authenticatedUid), {
+                    email: trimmedEmail,
+                    role: 'admin',
+                    displayName: 'System Admin',
+                    whatsappNumber: '1234567890',
+                    isAvailable: false
+                }, { merge: true });
+
+                await assignRole('admin', authenticatedUid);
+            }
+
+            navigate('/admin-dashboard', { replace: true });
             setTimeout(() => {
                 setIsRoleSwitching(false);
-            }, 1000);
+            }, 500);
 
         } catch (err) {
-            setIsRoleSwitching(false); // Reset if error
-            console.error("Login Error:", err);
-
-            // Hackathon helper: specific auto-creation for the requested default admin
-            if (trimmedEmail === 'admin@gmail.com' && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
-                try {
-                    console.log("Auto-creating default admin...");
-                    // Using the signup function from context (valid here)
-                    setIsRoleSwitching(true); // Ensure protection during auto-create too
-                    await signupWithEmail(trimmedEmail, trimmedPassword, { role: 'admin', name: 'System Admin' });
-                    navigate('/admin');
-                    setTimeout(() => setIsRoleSwitching(false), 1000);
-                    return;
-                } catch (signupErr) {
-                    setIsRoleSwitching(false);
-                    console.error("Auto-creation failed:", signupErr);
-                    setError('Failed to auto-create admin account.');
-                }
-            } else {
-                setError('Failed to log in as admin. Check credentials.');
-            }
+            setIsRoleSwitching(false);
+            console.error("Admin Login Error:", err);
+            setError(err.message || 'Failed to log in as admin. Please check your credentials.');
         } finally {
-            // Note: failing to authenticate throws error, caught above. 
-            // Successful auth keeps loading true until redirect completes implicitly, 
-            // but we can set it false here safely as local component state.
             setLoading(false);
         }
     };
@@ -76,7 +96,25 @@ export default function AdminLoginPage() {
                         </div>
                     </div>
                     <h2 className="text-2xl font-bold text-center text-white mb-2">Admin Portal</h2>
-                    <p className="text-gray-400 text-center mb-8">LifeLink Blood Bank Management</p>
+                    <p className="text-gray-400 text-center mb-6">LifeLink Blood Bank Management</p>
+
+                    {/* Default Credentials Callout Box */}
+                    <div className="bg-gray-900/90 border border-red-900/50 p-4 rounded-xl mb-6 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Default Credentials</span>
+                            <button 
+                                type="button" 
+                                onClick={() => { setEmail('admin@lifelink.org'); setPassword('admin123'); }} 
+                                className="text-xs font-bold text-white bg-red-600 hover:bg-red-500 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                            >
+                                Auto-fill Defaults
+                            </button>
+                        </div>
+                        <div className="text-xs text-gray-300 space-y-1 font-mono">
+                            <p><span className="text-gray-500">Email:</span> admin@lifelink.org</p>
+                            <p><span className="text-gray-500">Password:</span> admin123</p>
+                        </div>
+                    </div>
 
                     {error && (
                         <div className="bg-red-900/50 border border-red-500 text-red-200 p-3 rounded-lg mb-6 text-sm">
