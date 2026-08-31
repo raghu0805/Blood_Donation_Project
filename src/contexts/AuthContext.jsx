@@ -142,7 +142,64 @@ export function AuthProvider({ children }) {
         return signInWithEmailAndPassword(auth, email, password);
     };
 
-    const logout = () => signOut(auth);
+    // Online presence tracking effect
+    useEffect(() => {
+        if (!currentUser?.uid) return;
+
+        const updatePresence = async (status) => {
+            try {
+                const userRef = doc(db, "users", currentUser.uid);
+                await setDoc(userRef, {
+                    isOnline: status,
+                    lastSeen: new Date().toISOString()
+                }, { merge: true });
+            } catch (err) {
+                console.error("Presence update failed:", err);
+            }
+        };
+
+        // Mark online initially
+        updatePresence(true);
+
+        // Heartbeat interval every 60 seconds
+        const heartbeat = setInterval(() => {
+            updatePresence(true);
+        }, 60000);
+
+        // Handle page visibility / unload
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                updatePresence(false);
+            } else {
+                updatePresence(true);
+            }
+        };
+
+        const handleBeforeUnload = () => {
+            updatePresence(false);
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            clearInterval(heartbeat);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [currentUser?.uid]);
+
+    const logout = async () => {
+        if (currentUser?.uid) {
+            try {
+                const userRef = doc(db, "users", currentUser.uid);
+                await setDoc(userRef, { isOnline: false, lastSeen: new Date().toISOString() }, { merge: true });
+            } catch (err) {
+                console.error("Logout status update error:", err);
+            }
+        }
+        return signOut(auth);
+    };
 
     const assignRole = async (role, targetUid = null) => {
         const uid = targetUid || currentUser?.uid || auth.currentUser?.uid;

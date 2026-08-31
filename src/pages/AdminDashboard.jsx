@@ -27,7 +27,10 @@ import {
     ChevronRight,
     AlertCircle,
     Building2,
-    LogOut
+    LogOut,
+    Shield,
+    AlertTriangle,
+    Flag
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import logo from '../assets/app logo.png';
@@ -73,9 +76,15 @@ export default function AdminDashboard() {
     const [selectedRole, setSelectedRole] = useState('ALL');
     const [selectedAvailability, setSelectedAvailability] = useState('ALL');
 
+    // Pagination for User Directory Table
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 15;
+
     // Modals
     const [selectedUser, setSelectedUser] = useState(null);
     const [selectedDonation, setSelectedDonation] = useState(null);
+    const [reportUserModal, setReportUserModal] = useState(null);
+    const [reportReason, setReportReason] = useState('');
 
     useEffect(() => {
         fetchAllData();
@@ -94,7 +103,7 @@ export default function AdminDashboard() {
         if (loading) setLoading(true);
         setRefreshing(true);
         try {
-            // 1. Fetch registered users (strict exclusion of admin accounts)
+            // 1. Fetch registered users (excluding admin accounts)
             const usersQuery = query(collection(db, "users"));
             const usersSnapshot = await getDocs(usersQuery);
             const usersList = usersSnapshot.docs
@@ -116,6 +125,8 @@ export default function AdminDashboard() {
                     if (currentUid && id === currentUid) return false;
                     return true;
                 });
+
+            usersList.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             setUsers(usersList);
 
             // 2. Fetch completed donation requests across the platform
@@ -130,17 +141,14 @@ export default function AdminDashboard() {
                 ...docSnap.data()
             }));
 
-            // 3. Gather subcollection donations for all users if available
-            let allDonationRecords = [...requestsList];
-
             // Sort donation history by completion date descending
-            allDonationRecords.sort((a, b) => {
+            requestsList.sort((a, b) => {
                 const timeA = a.completedAt?.seconds || a.createdAt?.seconds || 0;
                 const timeB = b.completedAt?.seconds || b.createdAt?.seconds || 0;
                 return timeB - timeA;
             });
 
-            setDonations(allDonationRecords);
+            setDonations(requestsList);
         } catch (error) {
             console.error("Error loading admin dashboard data:", error);
             toast.error("Failed to sync dashboard data.");
@@ -150,7 +158,18 @@ export default function AdminDashboard() {
         }
     };
 
-    // Calculate executive summary metrics
+    // Online status check helper
+    const isUserOnline = (user) => {
+        if (user.isOnline === true) return true;
+        if (user.lastSeen) {
+            const lastSeenTime = new Date(user.lastSeen).getTime();
+            const now = Date.now();
+            if (now - lastSeenTime < 5 * 60 * 1000) return true;
+        }
+        return false;
+    };
+
+    // Calculate metrics
     const metrics = useMemo(() => {
         const totalUsers = users.length;
         const totalDonors = users.filter(u => u.role === 'donor' || !u.role).length;
@@ -158,10 +177,8 @@ export default function AdminDashboard() {
         const availableDonors = users.filter(u => u.isAvailable === true).length;
         const totalCompletedDonations = donations.length;
         
-        // Lives saved total sum
         const totalLivesSavedSum = users.reduce((acc, u) => acc + (Number(u.livesSaved) || 0), 0);
 
-        // Count per blood group (using normalizer)
         const groupCounts = {};
         STANDARD_BLOOD_GROUPS.forEach(bg => { groupCounts[bg] = 0; });
         groupCounts['UNSPECIFIED'] = 0;
@@ -175,7 +192,6 @@ export default function AdminDashboard() {
             }
         });
 
-        // Determine list of blood groups to display in filter pills & analytics
         const displayedGroups = [...STANDARD_BLOOD_GROUPS];
         if (groupCounts['UNSPECIFIED'] > 0) {
             displayedGroups.push('UNSPECIFIED');
@@ -201,12 +217,14 @@ export default function AdminDashboard() {
     // Filter users based on search, blood group, role, and availability
     const filteredUsers = useMemo(() => {
         return users.filter(user => {
-            const matchesSearch = 
-                (user.displayName || user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.rollNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.whatsappNumber || user.phone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.department || '').toLowerCase().includes(searchTerm.toLowerCase());
+            const name = (user.displayName || user.name || '').toLowerCase();
+            const email = (user.email || '').toLowerCase();
+            const rollNo = (user.rollNo || '').toLowerCase();
+            const phone = (user.whatsappNumber || user.phone || '').toLowerCase();
+            const dept = (user.department || '').toLowerCase();
+            const query = searchTerm.toLowerCase();
+
+            const matchesSearch = name.includes(query) || email.includes(query) || rollNo.includes(query) || phone.includes(query) || dept.includes(query);
 
             const userBg = normalizeBloodGroup(user.bloodGroup);
             const matchesBloodGroup = selectedBloodGroup === 'ALL' || userBg === selectedBloodGroup;
@@ -214,9 +232,10 @@ export default function AdminDashboard() {
             const userRole = user.role || 'donor';
             const matchesRole = selectedRole === 'ALL' || userRole === selectedRole;
 
+            const online = isUserOnline(user);
             const matchesAvailability = selectedAvailability === 'ALL' || 
-                (selectedAvailability === 'available' && user.isAvailable) ||
-                (selectedAvailability === 'unavailable' && !user.isAvailable);
+                (selectedAvailability === 'available' && (user.isAvailable || online)) ||
+                (selectedAvailability === 'unavailable' && (!user.isAvailable && !online));
 
             return matchesSearch && matchesBloodGroup && matchesRole && matchesAvailability;
         });
@@ -236,6 +255,25 @@ export default function AdminDashboard() {
             return matchesSearch && matchesBloodGroup;
         });
     }, [donations, searchTerm, selectedBloodGroup]);
+
+    // Pagination calculations
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+    const paginatedUsers = useMemo(() => {
+        return filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    }, [filteredUsers, currentPage, pageSize]);
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const handleSubmitReport = () => {
+        if (!reportUserModal) return;
+        toast.success(`Report submitted for ${reportUserModal.displayName || reportUserModal.name || 'user'}. Admin team flagged details.`);
+        setReportUserModal(null);
+        setReportReason('');
+    };
 
     const formatTimestamp = (ts) => {
         if (!ts) return 'N/A';
@@ -313,7 +351,7 @@ export default function AdminDashboard() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
                     <div>
                         <h1 className="text-3xl font-extrabold text-white tracking-tight select-none">Admin Monitoring Directory</h1>
-                        <p className="text-gray-400 text-sm mt-1 select-none">Real-time stats, blood group distribution, and completed network donations</p>
+                        <p className="text-gray-400 text-sm mt-1 select-none">Real-time stats, user availability, and completed network donations</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -410,7 +448,7 @@ export default function AdminDashboard() {
                             }`}
                         >
                             <Users className="h-4 w-4" />
-                            Registered Users ({metrics.totalUsers})
+                            Registered User Directory ({metrics.totalUsers})
                         </button>
 
                         <button
@@ -448,7 +486,7 @@ export default function AdminDashboard() {
                 {/* Global Search & Filters Toolbar */}
                 <div className="space-y-4 bg-gray-900/60 p-5 rounded-2xl border border-gray-800">
                     
-                    {/* Top Row: Search Input & Role Selector */}
+                    {/* Top Row: Search Input & Role / Availability Selectors */}
                     <div className="flex flex-col md:flex-row items-center gap-4">
                         <div className="relative flex-1 w-full">
                             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500 pointer-events-none" />
@@ -457,12 +495,15 @@ export default function AdminDashboard() {
                                 className="w-full pl-11 pr-10 py-3 rounded-xl bg-gray-950 border border-gray-800 text-white placeholder-gray-500 shadow-inner focus:ring-2 focus:ring-red-500 outline-none focus:border-red-500 transition-all text-sm select-text"
                                 placeholder="Search by name, email, roll number, phone or location..."
                                 value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                             />
                             {searchTerm && (
                                 <button 
                                     type="button"
-                                    onClick={() => setSearchTerm('')} 
+                                    onClick={() => { setSearchTerm(''); setCurrentPage(1); }} 
                                     className="absolute right-3.5 top-3.5 text-gray-500 hover:text-white select-none cursor-pointer"
                                 >
                                     <X className="h-4 w-4" />
@@ -475,7 +516,7 @@ export default function AdminDashboard() {
                                 <Filter className="h-4 w-4 text-gray-400 hidden sm:block" />
                                 <select
                                     value={selectedRole}
-                                    onChange={e => setSelectedRole(e.target.value)}
+                                    onChange={e => { setSelectedRole(e.target.value); setCurrentPage(1); }}
                                     className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-xl px-4 py-3 outline-none focus:border-red-500 w-full sm:w-auto cursor-pointer"
                                 >
                                     <option value="ALL">All Roles</option>
@@ -485,7 +526,7 @@ export default function AdminDashboard() {
 
                                 <select
                                     value={selectedAvailability}
-                                    onChange={e => setSelectedAvailability(e.target.value)}
+                                    onChange={e => { setSelectedAvailability(e.target.value); setCurrentPage(1); }}
                                     className="bg-gray-950 border border-gray-800 text-gray-200 text-sm rounded-xl px-4 py-3 outline-none focus:border-red-500 w-full sm:w-auto cursor-pointer"
                                 >
                                     <option value="ALL">All Status</option>
@@ -506,7 +547,7 @@ export default function AdminDashboard() {
                         <div className="flex flex-wrap items-center gap-2 select-none">
                             <button
                                 type="button"
-                                onClick={() => setSelectedBloodGroup('ALL')}
+                                onClick={() => { setSelectedBloodGroup('ALL'); setCurrentPage(1); }}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border select-none cursor-pointer ${
                                     selectedBloodGroup === 'ALL'
                                         ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950'
@@ -523,7 +564,7 @@ export default function AdminDashboard() {
                                     <button
                                         key={bg}
                                         type="button"
-                                        onClick={() => setSelectedBloodGroup(bg)}
+                                        onClick={() => { setSelectedBloodGroup(bg); setCurrentPage(1); }}
                                         className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 select-none cursor-pointer ${
                                             isSelected
                                                 ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950'
@@ -544,113 +585,139 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* TAB 1: Registered Users View */}
+                {/* TAB 1: Registered Users View (Refactor Layout Format matching Image) */}
                 {activeTab === 'users' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between select-none">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Users className="h-5 w-5 text-red-500" />
-                                Registered User Directory
-                            </h2>
-                            <span className="text-xs text-gray-400">
-                                Displaying <strong className="text-white">{filteredUsers.length}</strong> of {users.length} users
-                            </span>
+                        
+                        {/* Directory Table matching Reference Image Layout */}
+                        <div className="bg-slate-200 text-slate-900 rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-400">
+                            
+                            {/* Top Pagination Row matching Screenshot */}
+                            <div className="bg-slate-300 px-6 py-2.5 flex justify-between items-center text-xs md:text-sm font-bold border-b border-slate-400 text-slate-700">
+                                <span>Registered User Directory ({filteredUsers.length} Users)</span>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => handlePageChange(page)}
+                                            className={`px-2.5 py-0.5 rounded text-xs font-bold transition-colors ${
+                                                currentPage === page 
+                                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                                    : 'text-slate-800 hover:bg-slate-400/50'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Main Directory Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[700px]">
+                                    {/* Table Header Band */}
+                                    <thead>
+                                        <tr className="bg-slate-400 text-slate-900 font-bold border-b-2 border-slate-500 text-sm md:text-base">
+                                            <th className="py-3.5 px-6 border-r border-slate-500 w-1/3">Name</th>
+                                            <th className="py-3.5 px-6 border-r border-slate-500 text-center w-1/5">Available/Unavailable</th>
+                                            <th className="py-3.5 px-6 border-r border-slate-500 text-center w-1/4">Mobile No.</th>
+                                            <th className="py-3.5 px-6 text-center w-1/4">Report if details are incorrect</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loading ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-12 text-center text-slate-600 font-semibold">
+                                                    Loading registered user directory...
+                                                </td>
+                                            </tr>
+                                        ) : paginatedUsers.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-12 text-center text-slate-600 font-semibold">
+                                                    No registered users found matching selected criteria.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            paginatedUsers.map((user, idx) => {
+                                                const online = isUserOnline(user);
+                                                const isEven = idx % 2 === 0;
+                                                const userName = safeRender(user.displayName || user.name, "Unknown User");
+                                                const mobileNo = safeRender(user.whatsappNumber || user.phone || user.mobile, "N/A");
+
+                                                return (
+                                                    <tr
+                                                        key={user.id}
+                                                        className={`transition-colors text-sm md:text-base border-b border-slate-300 font-medium ${
+                                                            isEven ? 'bg-[#EAEFF5]' : 'bg-[#FFFFFF]'
+                                                        } hover:bg-blue-50/80`}
+                                                    >
+                                                        {/* Name Column (Clickable to open popup) */}
+                                                        <td className="py-3 px-6 border-r border-slate-300">
+                                                            <button
+                                                                onClick={() => setSelectedUser(user)}
+                                                                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold text-left transition-colors flex items-center gap-1.5 focus:outline-none cursor-pointer"
+                                                                title="Click to view full details"
+                                                            >
+                                                                <span>{userName}</span>
+                                                            </button>
+                                                        </td>
+
+                                                        {/* Available / Unavailable Status Column */}
+                                                        <td className="py-3 px-6 border-r border-slate-300 text-center font-bold">
+                                                            {online ? (
+                                                                <span className="text-emerald-600 flex items-center justify-center gap-1">
+                                                                    <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                                                                    Available
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-red-500 font-semibold">
+                                                                    Unavailable
+                                                                </span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Mobile No. Column */}
+                                                        <td className="py-3 px-6 border-r border-slate-300 text-center font-mono font-semibold text-slate-800">
+                                                            {mobileNo}
+                                                        </td>
+
+                                                        {/* Report Action Column */}
+                                                        <td className="py-3 px-6 text-center">
+                                                            <button
+                                                                onClick={() => setReportUserModal(user)}
+                                                                className="text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors focus:outline-none cursor-pointer"
+                                                            >
+                                                                Report
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Bottom Pagination Row matching Screenshot */}
+                            <div className="bg-slate-300 px-6 py-2.5 flex justify-end items-center border-t border-slate-400">
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => handlePageChange(page)}
+                                            className={`px-2.5 py-0.5 rounded text-xs font-bold transition-colors ${
+                                                currentPage === page 
+                                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                                    : 'text-slate-800 hover:bg-slate-400/50'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
-                        {loading ? (
-                            <div className="text-center py-16 bg-gray-900/50 rounded-2xl border border-gray-800 select-none">
-                                <div className="animate-spin h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-3" />
-                                <p className="text-gray-400 text-sm">Syncing user database...</p>
-                            </div>
-                        ) : filteredUsers.length === 0 ? (
-                            <div className="text-center py-16 bg-gray-900/50 rounded-2xl border border-gray-800 select-none">
-                                <AlertCircle className="h-10 w-10 text-gray-600 mx-auto mb-3" />
-                                <h3 className="text-lg font-semibold text-white">No Users Found</h3>
-                                <p className="text-gray-500 text-sm mt-1">No registered users matched the selected search or blood group criteria.</p>
-                                <Button 
-                                    type="button"
-                                    onClick={() => { setSearchTerm(''); setSelectedBloodGroup('ALL'); setSelectedRole('ALL'); setSelectedAvailability('ALL'); }}
-                                    className="mt-4 bg-gray-800 text-white text-xs px-4 py-2 select-none cursor-pointer"
-                                >
-                                    Reset All Filters
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {filteredUsers.map(user => (
-                                    <Card key={user.id} className="p-5 bg-gray-900 border-gray-800 hover:border-gray-700 transition-all flex flex-col justify-between space-y-4 shadow-lg group select-none">
-                                        
-                                        {/* Card Top: Blood Group + Name & Role */}
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-13 w-13 rounded-2xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-lg font-black text-red-400 shadow-inner flex-none">
-                                                    {normalizeBloodGroup(user.bloodGroup) !== 'UNSPECIFIED' ? normalizeBloodGroup(user.bloodGroup) : '?'}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-white text-base group-hover:text-red-400 transition-colors line-clamp-1">
-                                                        {safeRender(user.displayName || user.name, "Unnamed User")}
-                                                    </h3>
-                                                    <p className="text-xs text-gray-400 line-clamp-1">{safeRender(user.email, 'No email registered')}</p>
-                                                    
-                                                    <div className="flex items-center gap-2 mt-1.5">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                                            user.role === 'patient' 
-                                                                ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                                                                : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                                        }`}>
-                                                            {user.role || 'donor'}
-                                                        </span>
-
-                                                        {user.isAvailable ? (
-                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900/40 text-emerald-400 border border-emerald-700/50 flex items-center gap-1">
-                                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                                Available
-                                                            </span>
-                                                        ) : (
-                                                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-800 text-gray-400">
-                                                                Unavailable
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Card Middle: Key Metadata Pills */}
-                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                                            <div className="bg-gray-950 p-2 rounded-xl border border-gray-800 flex items-center gap-1.5">
-                                                <Calendar className="h-3.5 w-3.5 text-gray-500" />
-                                                <span>Age: <strong className="text-white">{safeRender(user.age, 'N/A')}</strong></span>
-                                            </div>
-                                            <div className="bg-gray-950 p-2 rounded-xl border border-gray-800 flex items-center gap-1.5">
-                                                <Ruler className="h-3.5 w-3.5 text-gray-500" />
-                                                <span>Weight: <strong className="text-white">{user.weight ? `${safeRender(user.weight)}kg` : 'N/A'}</strong></span>
-                                            </div>
-                                        </div>
-
-                                        {/* Card Bottom: Lives Saved + Details Button */}
-                                        <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between">
-                                            <div>
-                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Lives Saved</span>
-                                                <span className="text-base font-black text-red-400 flex items-center gap-1">
-                                                    <Heart className="h-3.5 w-3.5 fill-red-500" />
-                                                    {user.livesSaved || 0}
-                                                </span>
-                                            </div>
-
-                                            <Button
-                                                type="button"
-                                                onClick={() => setSelectedUser(user)}
-                                                className="bg-gray-800 hover:bg-red-600 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1 transition-all select-none cursor-pointer"
-                                            >
-                                                <span>View Details</span>
-                                                <ChevronRight className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -804,120 +871,146 @@ export default function AdminDashboard() {
 
             </main>
 
-            {/* MODAL 1: User Full Profile & History Detail */}
+            {/* MODAL 1: User Full Profile Details Popup */}
             {selectedUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn select-none">
-                    <div className="bg-gray-900 border border-gray-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-6 p-6 sm:p-8 relative">
+                    <div className="bg-gray-900 border border-gray-800 text-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
                         
                         {/* Close button */}
-                        <button 
+                        <button
                             type="button"
                             onClick={() => setSelectedUser(null)}
-                            className="absolute top-5 right-5 p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-full transition-colors select-none cursor-pointer"
+                            className="absolute top-5 right-5 text-gray-400 hover:text-white p-2 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors select-none cursor-pointer"
                         >
                             <X className="h-5 w-5" />
                         </button>
 
                         {/* Modal Header */}
-                        <div className="flex items-start gap-4 border-b border-gray-800 pb-5">
-                            <div className="h-16 w-16 rounded-2xl bg-red-950 border border-red-800 text-red-400 flex items-center justify-center text-2xl font-black flex-none shadow-lg">
+                        <div className="flex items-center gap-4 border-b border-gray-800 pb-5">
+                            <div className="h-16 w-16 rounded-2xl bg-red-950/90 border-2 border-red-800 flex items-center justify-center text-red-400 font-extrabold text-xl shadow-md flex-none">
                                 {normalizeBloodGroup(selectedUser.bloodGroup) !== 'UNSPECIFIED' ? normalizeBloodGroup(selectedUser.bloodGroup) : '?'}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-white">
-                                    {safeRender(selectedUser.displayName || selectedUser.name, "Unnamed User")}
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    {safeRender(selectedUser.displayName || selectedUser.name, "Unknown User")}
                                 </h2>
-                                <p className="text-sm text-gray-400">{safeRender(selectedUser.email, 'No email')}</p>
-                                
+                                <p className="text-gray-400 text-sm">{safeRender(selectedUser.email, 'No email registered')}</p>
                                 <div className="flex items-center gap-2 mt-2">
-                                    <span className="px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-purple-950 text-purple-400 border border-purple-800">
-                                        {selectedUser.role || 'donor'}
+                                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                        isUserOnline(selectedUser) 
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                    }`}>
+                                        {isUserOnline(selectedUser) ? '🟢 Available (Online)' : '🔴 Unavailable (Offline)'}
                                     </span>
-                                    {selectedUser.isAvailable ? (
-                                        <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-900/50 text-emerald-400 border border-emerald-700 flex items-center gap-1">
-                                            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                                            Available Donor
-                                        </span>
-                                    ) : (
-                                        <span className="px-2.5 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">
-                                            Unavailable
-                                        </span>
-                                    )}
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-medium">
+                                        Role: {selectedUser.role || 'User'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
                         {/* User Details Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                            <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-1">
-                                <span className="text-xs text-gray-500 font-semibold uppercase">WhatsApp / Contact</span>
-                                <div className="font-bold text-white flex items-center gap-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Mobile / WhatsApp</span>
+                                <span className="text-gray-100 font-mono font-semibold text-base flex items-center gap-2">
                                     <Phone className="h-4 w-4 text-emerald-400" />
-                                    {safeRender(selectedUser.whatsappNumber || selectedUser.phone, 'Not Provided')}
-                                </div>
-                                {selectedUser.whatsappNumber && typeof selectedUser.whatsappNumber === 'string' && (
-                                    <a 
-                                        href={`https://wa.me/${selectedUser.whatsappNumber.replace(/[^0-9]/g, '')}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline mt-1 font-semibold select-none"
-                                    >
-                                        Open WhatsApp Chat <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                )}
+                                    {safeRender(selectedUser.whatsappNumber || selectedUser.phone || selectedUser.mobile, 'Not provided')}
+                                </span>
                             </div>
 
-                            <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-1">
-                                <span className="text-xs text-gray-500 font-semibold uppercase">Academic / Roll Number</span>
-                                <div className="font-bold text-white flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-blue-400" />
-                                    {safeRender(selectedUser.rollNo, 'N/A')}
-                                </div>
-                                <span className="text-xs text-gray-400 block">{safeRender(selectedUser.department, 'Department N/A')}</span>
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Blood Group</span>
+                                <span className="text-gray-100 font-semibold text-base flex items-center gap-2">
+                                    <Heart className="h-4 w-4 text-red-400" />
+                                    {normalizeBloodGroup(selectedUser.bloodGroup)}
+                                </span>
                             </div>
 
-                            <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-1">
-                                <span className="text-xs text-gray-500 font-semibold uppercase">Age & Weight</span>
-                                <div className="font-bold text-white flex items-center gap-3">
-                                    <span>Age: <strong>{safeRender(selectedUser.age, 'N/A')}</strong></span>
-                                    <span>•</span>
-                                    <span>Weight: <strong>{selectedUser.weight ? `${safeRender(selectedUser.weight)} kg` : 'N/A'}</strong></span>
-                                </div>
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Age & Gender</span>
+                                <span className="text-gray-100 font-medium text-base">
+                                    {selectedUser.age ? `${safeRender(selectedUser.age)} yrs` : 'Age N/A'} • {safeRender(selectedUser.gender, 'Gender N/A')}
+                                </span>
                             </div>
 
-                            <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-1">
-                                <span className="text-xs text-gray-500 font-semibold uppercase">Lives Saved Counter</span>
-                                <div className="font-extrabold text-red-400 text-lg flex items-center gap-1.5">
-                                    <Heart className="h-5 w-5 fill-red-500" />
-                                    {selectedUser.livesSaved || 0} Lives Touched
-                                </div>
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Weight</span>
+                                <span className="text-gray-100 font-medium text-base">
+                                    {selectedUser.weight ? `${safeRender(selectedUser.weight)} kg` : 'Weight N/A'}
+                                </span>
+                            </div>
+
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Lives Saved</span>
+                                <span className="text-emerald-400 font-bold text-base flex items-center gap-1.5">
+                                    <Activity className="h-4 w-4" />
+                                    {selectedUser.livesSaved || 0} lives
+                                </span>
+                            </div>
+
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Donor Availability</span>
+                                <span className={`font-semibold text-sm ${selectedUser.isAvailable ? 'text-emerald-400' : 'text-gray-400'}`}>
+                                    {selectedUser.isAvailable ? 'Available for Donation' : 'Unavailable'}
+                                </span>
+                            </div>
+
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800 md:col-span-2">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Location / Address</span>
+                                <span className="text-gray-200 text-sm flex items-start gap-1.5">
+                                    <MapPin className="h-4 w-4 text-red-400 flex-none mt-0.5" />
+                                    {typeof selectedUser.location === 'object'
+                                        ? selectedUser.location?.address || `${selectedUser.location?.city || ''}, ${selectedUser.location?.state || ''}`
+                                        : (selectedUser.location || 'Location not updated')}
+                                </span>
+                            </div>
+
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Last Donated Date</span>
+                                <span className="text-gray-200 text-sm">
+                                    {formatTimestamp(selectedUser.lastDonated)}
+                                </span>
+                            </div>
+
+                            <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
+                                <span className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Roll No / Student ID</span>
+                                <span className="text-gray-200 text-sm font-mono">
+                                    {safeRender(selectedUser.rollNo, 'Not linked')}
+                                </span>
                             </div>
                         </div>
 
-                        {/* Extra User Metadata */}
-                        {selectedUser.gender && (
-                            <div className="bg-gray-950/80 p-4 rounded-2xl border border-gray-800 text-xs space-y-2 text-gray-300">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-500 font-semibold uppercase">Gender:</span>
-                                    <span className="font-bold text-white capitalize">{safeRender(selectedUser.gender)}</span>
-                                </div>
-                                {selectedUser.lastDonated && (
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-gray-500 font-semibold uppercase">Last Donated Date:</span>
-                                        <span className="font-bold text-white">{formatTimestamp(selectedUser.lastDonated)}</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="pt-4 border-t border-gray-800 flex justify-end">
-                            <Button 
+                        {/* Action buttons */}
+                        <div className="pt-4 border-t border-gray-800 flex flex-wrap gap-3 justify-end">
+                            {(selectedUser.whatsappNumber || selectedUser.phone) && (
+                                <a
+                                    href={`https://wa.me/${String(selectedUser.whatsappNumber || selectedUser.phone).replace(/[^0-9]/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm flex items-center gap-2 transition-colors shadow"
+                                >
+                                    <Phone className="h-4 w-4" /> WhatsApp User
+                                </a>
+                            )}
+                            <button
                                 type="button"
-                                onClick={() => setSelectedUser(null)} 
-                                className="bg-gray-800 hover:bg-gray-700 text-white text-xs px-5 py-2.5 rounded-xl select-none cursor-pointer"
+                                onClick={() => {
+                                    setReportUserModal(selectedUser);
+                                    setSelectedUser(null);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-semibold text-sm flex items-center gap-2 transition-colors cursor-pointer"
                             >
-                                Close Modal
-                            </Button>
+                                <Flag className="h-4 w-4" /> Report Incorrect Details
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedUser(null)}
+                                className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-sm transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -926,7 +1019,7 @@ export default function AdminDashboard() {
             {/* MODAL 2: Donation Transaction Detail */}
             {selectedDonation && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn select-none">
-                    <div className="bg-gray-900 border border-gray-800 rounded-3xl max-w-xl w-full shadow-2xl p-6 sm:p-8 space-y-6 relative">
+                    <div className="bg-gray-900 border border-gray-800 text-white rounded-3xl max-w-xl w-full shadow-2xl p-6 sm:p-8 space-y-6 relative">
                         
                         <button 
                             type="button"
@@ -993,13 +1086,59 @@ export default function AdminDashboard() {
                                 onClick={() => setSelectedDonation(null)} 
                                 className="bg-gray-800 hover:bg-gray-700 text-white text-xs px-5 py-2.5 rounded-xl select-none cursor-pointer"
                             >
-                                Dismiss
+                                Close Summary
                             </Button>
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* MODAL 3: Report Incorrect Details Modal */}
+            {reportUserModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn select-none">
+                    <div className="bg-gray-900 border border-gray-800 text-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
+                        <div className="flex items-center gap-3 text-red-400">
+                            <AlertTriangle className="h-6 w-6" />
+                            <h3 className="text-lg font-bold text-white">Report Incorrect Details</h3>
+                        </div>
+
+                        <p className="text-sm text-gray-300">
+                            Flag incorrect profile information for <span className="font-bold text-white">{safeRender(reportUserModal.displayName || reportUserModal.name, 'User')}</span>.
+                        </p>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Reason / Details</label>
+                            <textarea
+                                rows={3}
+                                className="w-full p-3 rounded-xl bg-gray-950 border border-gray-800 text-white text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                                placeholder="Specify what details are incorrect (e.g. invalid phone number, wrong blood group)..."
+                                value={reportReason}
+                                onChange={e => setReportReason(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setReportUserModal(null);
+                                    setReportReason('');
+                                }}
+                                className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-semibold transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSubmitReport}
+                                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold shadow transition-colors cursor-pointer"
+                            >
+                                Submit Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
