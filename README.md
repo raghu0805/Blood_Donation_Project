@@ -3,6 +3,7 @@
 
 <<<<<<< HEAD
 ---
+Host Link -----> https://portfolio-f6281.web.app/.
 
 ## 🏗️ Architecture Overview
 - **Frontend:** React + Vite, TailwindCSS, Framer Motion for animations.
