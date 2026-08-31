@@ -27,12 +27,45 @@ export default function AuthPage() {
         rollNo: ''
     });
 
+    const isProfileComplete = (userData) => {
+        if (!userData) return false;
+        if (userData.role === 'admin') {
+            return !!(userData.displayName || userData.name) && !!userData.whatsappNumber;
+        }
+        return !!(userData.displayName || userData.name) &&
+               !!userData.age &&
+               !!userData.weight &&
+               !!userData.bloodGroup &&
+               !!userData.whatsappNumber &&
+               !!userData.gender;
+    };
+
     const handleGoogleLogin = async () => {
         if (isGoogleLoading) return;
         setIsGoogleLoading(true);
         try {
-            await loginWithGoogle();
+            const cred = await loginWithGoogle();
             toast.success("Signed in with Google!");
+
+            if (cred?.user) {
+                const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const role = userData.role;
+
+                    if (!role) {
+                        navigate('/role-selection');
+                    } else if (isProfileComplete(userData)) {
+                        if (role === 'donor') navigate('/donor-dashboard');
+                        else if (role === 'patient') navigate('/patient-dashboard');
+                        else if (role === 'admin') navigate('/admin-dashboard');
+                        else navigate('/');
+                    } else {
+                        navigate('/profile');
+                    }
+                    return;
+                }
+            }
             navigate('/role-selection');
         } catch (error) {
             console.error("Login Failed", error);
@@ -58,17 +91,21 @@ export default function AuthPage() {
                 }
                 const cred = await loginWithEmail(email, password);
 
-                // Fetch user role immediately to decide redirection
+                // Fetch user profile from DB to decide redirection
                 const userDoc = await getDoc(doc(db, "users", cred.user.uid));
 
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     const role = userData.role;
 
-                    // ALWAYS redirect to profile after login/signup (Profile restriction will handle the rest)
                     toast.success("Welcome back!");
                     if (!role) {
                         navigate('/role-selection');
+                    } else if (isProfileComplete(userData)) {
+                        if (role === 'donor') navigate('/donor-dashboard');
+                        else if (role === 'patient') navigate('/patient-dashboard');
+                        else if (role === 'admin') navigate('/admin-dashboard');
+                        else navigate('/');
                     } else {
                         navigate('/profile');
                     }

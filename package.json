@@ -12,6 +12,8 @@
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
         "@headlessui/react": "^2.2.9",
+        "baseline-browser-mapping": "^2.11.20",
+        "caniuse-lite": "^1.0.30001810",
         "clsx": "^2.1.0",
         "date-fns": "^3.3.1",
         "firebase": "^10.8.0",

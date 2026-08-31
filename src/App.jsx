@@ -34,7 +34,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
     const isProfileIncomplete = () => {
         if (!currentUser) return true;
         if (userRole === 'admin') {
-            return !currentUser.displayName || !currentUser.whatsappNumber;
+            return false; // Admins have immediate access to admin dashboard
         }
         return !currentUser.age || !currentUser.weight || !currentUser.bloodGroup || !currentUser.whatsappNumber || !currentUser.gender;
     };
@@ -74,13 +74,18 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
 
     if (allowedRoles.length > 0 && (!userRole || !allowedRoles.includes(userRole))) {
         // If user has no role yet, go to selection
-        if (!userRole) return <Navigate to="/role-selection" />;
-        // Otherwise, redirect to their dashboard/home
-        return <Navigate to="/" />;
+        if (!userRole) return <Navigate to="/role-selection" replace />;
+        
+        toast.error("Access Denied: Authorized personnel only.", { id: 'role-unauthorized' });
+        
+        // Redirect to user's assigned dashboard
+        if (userRole === 'donor') return <Navigate to="/donor-dashboard" replace />;
+        if (userRole === 'patient') return <Navigate to="/patient-dashboard" replace />;
+        return <Navigate to="/" replace />;
     }
 
     if (needsProfileRedirect) {
-        return <Navigate to="/profile" />;
+        return <Navigate to="/profile" state={{ profileIncomplete: true, redirectedFrom: location.pathname }} replace />;
     }
 
     return children;
@@ -133,18 +138,18 @@ function App() {
                                 <Route path="role-selection" element={<RoleSelection />} />
 
                                 <Route path="donor-dashboard" element={
-                                    <ProtectedRoute>
+                                    <ProtectedRoute allowedRoles={['donor']}>
                                         <DonorDashboard />
                                     </ProtectedRoute>
                                 } />
 
                                 <Route path="patient-dashboard" element={
-                                    <ProtectedRoute>
+                                    <ProtectedRoute allowedRoles={['patient']}>
                                         <PatientDashboard />
                                     </ProtectedRoute>
                                 } />
 
-                                <Route path="chat/:requestId" element={
+                                <Route path="chat/:requestId/:donorId?" element={
                                     <ProtectedRoute>
                                         <ChatPage />
                                     </ProtectedRoute>
@@ -168,19 +173,19 @@ function App() {
                                     </ProtectedRoute>
                                 } />
 
-                                <Route path="admin" element={
-                                    <ProtectedRoute>
-                                        <LandingPage />
-                                    </ProtectedRoute>
-                                } />
-
-                                <Route path="admin-dashboard" element={
-                                    <ProtectedRoute>
-                                        <AdminDashboard />
-                                    </ProtectedRoute>
-                                } />
                             </Route>
 
+                            {/* Standalone Admin Routes (Not wrapped in Layout) */}
+                            <Route path="/admin" element={
+                                <ProtectedRoute allowedRoles={['admin']}>
+                                    <AdminDashboard />
+                                </ProtectedRoute>
+                            } />
+                            <Route path="/admin-dashboard" element={
+                                <ProtectedRoute allowedRoles={['admin']}>
+                                    <AdminDashboard />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/admin-login" element={<AdminLoginPage />} />
                         </Routes>
                     </MCPProvider>

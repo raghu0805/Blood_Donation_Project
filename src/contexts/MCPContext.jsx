@@ -211,7 +211,7 @@ export function MCPProvider({ children }) {
     };
 
     // === ENHANCED: Accept Request with Multi-Donor Pool & Race-Condition Safety ===
-    const acceptRequest = async (requestId, preferredList = 'confirmed') => {
+    const acceptRequest = async (requestId, preferredList = 'reserve') => {
         if (!currentUser) throw new Error("Must be logged in to accept requests");
 
         try {
@@ -229,7 +229,7 @@ export function MCPProvider({ children }) {
                 const confirmed = data.confirmedDonors || [];
                 const reserve = data.reserveDonors || [];
                 const maxSlots = data.maxConfirmedSlots || data.unitsRequired || 1;
-                const reserveSlots = (data.reserveRequired !== undefined && data.reserveRequired > 0) ? data.reserveRequired : 5;
+                const reserveSlots = (data.reserveRequired !== undefined && data.reserveRequired > 0) ? data.reserveRequired : 10;
 
                 // Guard: prevent duplicate donor assignment
                 const alreadyConfirmed = confirmed.some(d => d.donorId === currentUser.uid);
@@ -239,10 +239,10 @@ export function MCPProvider({ children }) {
                 }
 
                 if (preferredList === 'confirmed' && confirmed.length >= maxSlots) {
-                    throw new Error("The Reserved List is currently full.");
+                    throw new Error("The Primary List is currently full.");
                 }
                 if (preferredList === 'reserve' && reserve.length >= reserveSlots) {
-                    throw new Error("The Emergency List is currently full.");
+                    throw new Error("The Secondary List is currently full.");
                 }
 
                 // Calculate priority score
@@ -505,15 +505,23 @@ export function MCPProvider({ children }) {
     const sendMessage = async (requestId, messageText, extraData = {}) => {
         if (!currentUser) return;
         try {
-            const messagesRef = collection(db, 'requests', requestId, 'messages');
-            await addDoc(messagesRef, {
+            const targetDonorId = extraData.donorId || extraData.targetDonorId;
+            const msgPayload = {
                 text: messageText,
                 senderId: currentUser.uid,
                 senderName: currentUser.displayName || currentUser.name || currentUser.email,
                 createdAt: serverTimestamp(),
                 type: extraData.type || 'text',
                 ...extraData
-            });
+            };
+
+            if (targetDonorId) {
+                const donorChatRef = collection(db, 'requests', requestId, 'chats', targetDonorId, 'messages');
+                await addDoc(donorChatRef, msgPayload);
+            } else {
+                const mainMessagesRef = collection(db, 'requests', requestId, 'messages');
+                await addDoc(mainMessagesRef, msgPayload);
+            }
         } catch (error) {
             console.error("MCP: Error sending message", error);
             throw error;

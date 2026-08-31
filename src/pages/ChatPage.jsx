@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
@@ -12,7 +12,10 @@ import UserAvatar from '../components/UserAvatar';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ChatPage() {
-    const { requestId } = useParams();
+    const { requestId, donorId: paramDonorId } = useParams();
+    const [searchParams] = useSearchParams();
+    const queryDonorId = searchParams.get('donorId');
+
     const { currentUser } = useAuth();
     const { sendMessage, userLocation } = useMCP();
     const navigate = useNavigate();
@@ -45,25 +48,43 @@ export default function ChatPage() {
         fetchRequest();
     }, [requestId, navigate]);
 
-    // Listen for Real-Time Messages
+    const isPatient = currentUser?.uid === requestDetails?.patientId;
+    const activeTargetDonorId = paramDonorId || queryDonorId || (!isPatient ? currentUser?.uid : null);
+
+    // Listen for Real-Time Messages in isolated per-donor chat channel
     useEffect(() => {
-        if (!requestId) return;
+        if (!requestId || !currentUser || !requestDetails) return;
+        const targetId = paramDonorId || queryDonorId || (currentUser.uid !== requestDetails.patientId ? currentUser.uid : null);
 
-        const q = query(
-            collection(db, 'requests', requestId, 'messages'),
-            orderBy('createdAt', 'asc')
-        );
+        let unsub;
+        if (targetId) {
+            const q = query(
+                collection(db, 'requests', requestId, 'chats', targetId, 'messages'),
+                orderBy('createdAt', 'asc')
+            );
+            unsub = onSnapshot(q, (snapshot) => {
+                const msgs = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setMessages(msgs);
+            });
+        } else {
+            const q = query(
+                collection(db, 'requests', requestId, 'messages'),
+                orderBy('createdAt', 'asc')
+            );
+            unsub = onSnapshot(q, (snapshot) => {
+                const msgs = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setMessages(msgs);
+            });
+        }
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const msgs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setMessages(msgs);
-        });
-
-        return () => unsubscribe();
-    }, [requestId]);
+        return () => { if (unsub) unsub(); };
+    }, [requestId, paramDonorId, queryDonorId, currentUser, requestDetails]);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -78,7 +99,12 @@ export default function ChatPage() {
         try {
             const text = newMessage;
             setNewMessage(''); // Clear immediately for better UX
-            await sendMessage(requestId, text);
+            const extraPayload = {};
+            if (activeTargetDonorId) {
+                extraPayload.targetDonorId = activeTargetDonorId;
+                extraPayload.donorId = activeTargetDonorId;
+            }
+            await sendMessage(requestId, text, extraPayload);
         } catch (err) {
             console.error("Failed to send:", err);
             toast.error("Failed to send message.");
@@ -97,10 +123,15 @@ export default function ChatPage() {
         navigator.geolocation.getCurrentPosition(async (position) => {
             const { latitude, longitude } = position.coords;
             try {
-                await sendMessage(requestId, "📍 Shared Location", {
+                const extraPayload = {
                     type: 'location',
                     coords: { lat: latitude, lng: longitude }
-                });
+                };
+                if (activeTargetDonorId) {
+                    extraPayload.targetDonorId = activeTargetDonorId;
+                    extraPayload.donorId = activeTargetDonorId;
+                }
+                await sendMessage(requestId, "📍 Shared Location", extraPayload);
             } catch (err) {
                 console.error("Error sharing location:", err);
                 toast.error("Failed to share location.");
@@ -116,15 +147,23 @@ export default function ChatPage() {
 
     const getOtherParticipantInfo = () => {
         if (!requestDetails) return { name: "Loading...", photoURL: null };
-        const isPatient = currentUser.uid === requestDetails.patientId;
         const confirmed = requestDetails.confirmedDonors || [];
+        const reserve = requestDetails.reserveDonors || [];
+        const allDonors = [...confirmed, ...reserve];
         
         if (isPatient) {
-            if (confirmed.length > 1) {
-                return { name: `${confirmed.length} Donors Pool`, photoURL: null };
+            if (activeTargetDonorId) {
+                const donor = allDonors.find(d => d.donorId === activeTargetDonorId);
+                if (donor) {
+                    const poolLabel = confirmed.some(d => d.donorId === activeTargetDonorId) ? "Primary Donor" : "Secondary Donor";
+                    return { name: `${donor.donorName || "Donor"} (${poolLabel})`, photoURL: donor.donorPhotoURL };
+                }
             }
             if (confirmed.length === 1) {
                 return { name: confirmed[0].donorName || "Donor", photoURL: confirmed[0].donorPhotoURL };
+            }
+            if (allDonors.length > 0) {
+                return { name: `Select a Donor to Chat`, photoURL: null };
             }
             return { name: requestDetails.donorName || "Potential Donor", photoURL: requestDetails.donorPhotoURL };
         } else {
@@ -208,23 +247,36 @@ export default function ChatPage() {
             {/* Messages Area */}
             <main className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth bg-[#f8fafc]/50">
                 <div className="mx-auto max-w-2xl space-y-6">
-                    <AnimatePresence mode="popLayout">
-                        {messages.length === 0 ? (
-                            <motion.div 
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex flex-col items-center justify-center py-20 text-center opacity-60"
-                            >
-                                <div className="mb-4 h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
-                                    <Send size={40} />
-                                </div>
-                                <p className="text-sm font-bold text-slate-500">Secure Channel Established</p>
-                                <p className="mt-1 text-xs text-slate-400 max-w-[200px]">Send a message to coordinate the life-saving donation.</p>
-                            </motion.div>
-                        ) : (
-                            messages.map((msg, idx) => {
-                                const isMe = msg.senderId === currentUser?.uid;
-                                const showAvatar = !isMe && (idx === 0 || messages[idx-1].senderId !== msg.senderId);
+                    {(() => {
+                        const visibleMessages = messages.filter(msg => {
+                            if (!activeTargetDonorId) return true;
+                            if (msg.system) return true;
+                            return (
+                                !msg.targetDonorId ||
+                                msg.targetDonorId === activeTargetDonorId ||
+                                msg.donorId === activeTargetDonorId ||
+                                msg.senderId === activeTargetDonorId
+                            );
+                        });
+
+                        return (
+                            <AnimatePresence mode="popLayout">
+                                {visibleMessages.length === 0 ? (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex flex-col items-center justify-center py-20 text-center opacity-60"
+                                    >
+                                        <div className="mb-4 h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+                                            <Send size={40} />
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-500">Secure Channel Established</p>
+                                        <p className="mt-1 text-xs text-slate-400 max-w-[200px]">Send a message to coordinate the life-saving donation.</p>
+                                    </motion.div>
+                                ) : (
+                                    visibleMessages.map((msg, idx) => {
+                                        const isMe = msg.senderId === currentUser?.uid;
+                                        const showAvatar = !isMe && (idx === 0 || visibleMessages[idx-1]?.senderId !== msg.senderId);
                                 
                                 return (
                                     <motion.div 
@@ -297,6 +349,8 @@ export default function ChatPage() {
                             })
                         )}
                     </AnimatePresence>
+                );
+            })()}
                     <div ref={messagesEndRef} className="h-4" />
                 </div>
             </main>

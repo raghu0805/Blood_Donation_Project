@@ -35,7 +35,7 @@ const statusStyle = {
 };
 
 function RequestForm({ onClose, onSubmit, submitting }) {
-  const [form, setForm] = useState({ bloodGroup: "B+", urgency: "Emergency", hospital: "", notes: "", unitsRequired: 1, reserveRequired: 2, location: null });
+  const [form, setForm] = useState({ bloodGroup: "B+", urgency: "Emergency", hospital: "", notes: "", unitsRequired: 1, location: null });
 
   const handleLocationConfirm = (locationData) => {
     if (locationData) {
@@ -99,40 +99,21 @@ function RequestForm({ onClose, onSubmit, submitting }) {
               ))}
             </div>
           </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Units Required</label>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.max(1, form.unitsRequired - 1) })}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-                  <Minus size={16} />
-                </button>
-                <div className="flex h-12 w-16 items-center justify-center rounded-2xl text-xl font-black text-gray-900"
-                  style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
-                  {form.unitsRequired}
-                </div>
-                <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.min(10, form.unitsRequired + 1) })}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-                  <Plus size={16} />
-                </button>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Units Required</label>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.max(1, form.unitsRequired - 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                <Minus size={16} />
+              </button>
+              <div className="flex h-12 w-16 items-center justify-center rounded-2xl text-xl font-black text-gray-900"
+                style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                {form.unitsRequired}
               </div>
-            </div>
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Emergency Donors</label>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setForm({ ...form, reserveRequired: Math.max(0, form.reserveRequired - 1) })}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-                  <Minus size={16} />
-                </button>
-                <div className="flex h-12 w-16 items-center justify-center rounded-2xl text-xl font-black text-gray-900"
-                  style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
-                  {form.reserveRequired}
-                </div>
-                <button type="button" onClick={() => setForm({ ...form, reserveRequired: Math.min(10, form.reserveRequired + 1) })}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-                  <Plus size={16} />
-                </button>
-              </div>
+              <button type="button" onClick={() => setForm({ ...form, unitsRequired: Math.min(10, form.unitsRequired + 1) })}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+                <Plus size={16} />
+              </button>
             </div>
           </div>
 
@@ -151,7 +132,7 @@ function RequestForm({ onClose, onSubmit, submitting }) {
             disabled={submitting || !form.location}
             className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 8px 24px rgba(220,38,38,0.25)" }}>
-            <AlertCircle size={16} /> {submitting ? "Processing..." : (!form.location ? "Select Location First" : "Submit Emergency Request")}
+            <AlertCircle size={16} /> {submitting ? "Processing..." : (!form.location ? "Select Location First" : "Submit Request")}
           </motion.button>
         </div>
       </motion.div>
@@ -404,27 +385,34 @@ export default function PatientDashboard() {
                                         
                                         {confirmed.length > 0 && (
                                             <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Reserved Donors (Primary) ({confirmed.length}/{unitsReq})</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Primary Donors (Confirmed) ({confirmed.length}/{unitsReq})</p>
                                                 <div className="space-y-1.5">
                                                     {confirmed.map(d => (
-                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-blue-50/50 border border-blue-100/50">
+                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-blue-50/50 border border-blue-100/50 gap-2">
                                                             <div className="flex items-center gap-2 min-w-0">
                                                                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold shrink-0">
                                                                     {d.donorName?.charAt(0)}
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <p className="text-xs font-bold text-gray-800 truncate">{d.donorName} <span className="text-[9px] font-normal text-slate-500 bg-white px-1.5 py-0.5 rounded-full border border-slate-200">Score: {d.priority || 0}</span></p>
-                                                                    <p className="text-[10px] text-slate-500 truncate">{d.status === 'completed' ? 'Donation Completed' : 'Pending Donation'}</p>
+                                                                    <p className="text-[10px] text-slate-500 truncate">{d.status === 'completed' ? 'Donation Completed' : 'Primary Donor'}</p>
                                                                 </div>
                                                             </div>
-                                                            {d.status !== 'completed' && (
-                                                                <button 
-                                                                    disabled={isProcessingDonor === d.donorId}
-                                                                    onClick={() => handleMoveDonor(req.id, d.donorId, 'reserve')}
-                                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-amber-600 transition-colors bg-white px-2 py-1 rounded border border-slate-200 shadow-sm hover:shadow shrink-0 disabled:opacity-50">
-                                                                    <ArrowDownCircle size={12} /> {isProcessingDonor === d.donorId ? "..." : "Move"}
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <button
+                                                                    onClick={() => navigate(`/chat/${req.id}/${d.donorId}`)}
+                                                                    className="flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 transition-colors px-2 py-1 rounded border border-green-200 shadow-sm shrink-0">
+                                                                    <MessageCircle size={12} /> Chat
                                                                 </button>
-                                                            )}
+                                                                {d.status !== 'completed' && (
+                                                                    <button 
+                                                                        disabled={isProcessingDonor === d.donorId}
+                                                                        onClick={() => handleMoveDonor(req.id, d.donorId, 'reserve')}
+                                                                        className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-amber-600 transition-colors bg-white px-2 py-1 rounded border border-slate-200 shadow-sm hover:shadow shrink-0 disabled:opacity-50">
+                                                                        <ArrowDownCircle size={12} /> {isProcessingDonor === d.donorId ? "..." : "Move to Secondary"}
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -433,25 +421,32 @@ export default function PatientDashboard() {
 
                                         {reserve.length > 0 && (
                                             <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 mt-3">Emergency Donors (Standby) ({reserve.length})</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 mt-3">Secondary Donors (Standby) ({reserve.length})</p>
                                                 <div className="space-y-1.5">
                                                     {reserve.map(d => (
-                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 border border-amber-100/50">
+                                                        <div key={d.donorId} className="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 border border-amber-100/50 gap-2">
                                                             <div className="flex items-center gap-2 min-w-0">
                                                                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-300 text-slate-600 text-[10px] font-bold shrink-0">
                                                                     {d.donorName?.charAt(0)}
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <p className="text-xs font-bold text-gray-800 truncate">{d.donorName} <span className="text-[9px] font-normal text-slate-500 bg-white px-1.5 py-0.5 rounded-full border border-slate-200">Score: {d.priority || 0}</span></p>
-                                                                    <p className="text-[10px] text-slate-500 truncate">Standby Donor</p>
+                                                                    <p className="text-[10px] text-slate-500 truncate">Secondary Standby Donor</p>
                                                                 </div>
                                                             </div>
-                                                            <button 
-                                                                disabled={isProcessingDonor === d.donorId}
-                                                                onClick={() => handleMoveDonor(req.id, d.donorId, 'confirmed')}
-                                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition-colors bg-white px-2 py-1 rounded border border-blue-100 shadow-sm hover:shadow shrink-0 disabled:opacity-50">
-                                                                <ArrowUpCircle size={12} /> {isProcessingDonor === d.donorId ? "..." : "Move"}
-                                                            </button>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <button
+                                                                    onClick={() => navigate(`/chat/${req.id}/${d.donorId}`)}
+                                                                    className="flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 transition-colors px-2 py-1 rounded border border-green-200 shadow-sm shrink-0">
+                                                                    <MessageCircle size={12} /> Chat
+                                                                </button>
+                                                                <button 
+                                                                    disabled={isProcessingDonor === d.donorId}
+                                                                    onClick={() => handleMoveDonor(req.id, d.donorId, 'confirmed')}
+                                                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition-colors bg-white px-2 py-1 rounded border border-blue-100 shadow-sm hover:shadow shrink-0 disabled:opacity-50">
+                                                                    <ArrowUpCircle size={12} /> {isProcessingDonor === d.donorId ? "..." : "Move to Primary"}
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -466,10 +461,6 @@ export default function PatientDashboard() {
                         {['accepted', 'partially_fulfilled', 'fulfilled', 'ready_for_pickup'].includes(req.status) && (
                           <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
                             <div className="flex flex-wrap gap-2">
-                                <motion.button type="button" whileTap={{ scale: 0.95 }} onTap={() => navigate(`/chat/${req.id}`)}
-                                  className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white bg-green-600 shadow flex items-center gap-1.5 transition-colors hover:bg-green-700">
-                                  <MessageCircle size={12} /> Chat
-                                </motion.button>
                                 {confirmed.filter(d => d.status === 'active').map(d => (
                                   <motion.button type="button" key={d.donorId} whileTap={{ scale: 0.95 }} onTap={() => setVerifyTarget({ req, donor: d })}
                                     className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white shadow transition-colors flex items-center gap-1.5"
@@ -481,7 +472,7 @@ export default function PatientDashboard() {
                             {(confirmed.length > 0 || reserve.length > 0) && (
                                 <motion.button type="button" whileTap={{ scale: 0.95 }} onTap={() => setExpandedReqId(expandedReqId === req.id ? null : req.id)} 
                                     className="ml-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors flex items-center gap-1.5 shadow-sm">
-                                    <Users size={12} /> {expandedReqId === req.id ? "Hide Donors" : "Manage Donors"}
+                                    <Users size={12} /> {expandedReqId === req.id ? "Hide Donors" : `View & Chat with Donors (${confirmed.length + reserve.length})`}
                                 </motion.button>
                             )}
                           </div>
