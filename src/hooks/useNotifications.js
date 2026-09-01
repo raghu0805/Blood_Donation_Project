@@ -76,26 +76,71 @@ export default function useNotifications() {
                 if (req.patientId !== currentUser.uid) return;
 
                 const confirmed = req.confirmedDonors || [];
+                const reserve = req.reserveDonors || [];
+                const history = req.donorHistory || [];
                 const unitsReq = req.unitsRequired || 1;
                 const isClosed = ['completed', 'closed'].includes(req.status);
 
-                // Each confirmed donor
+                // Primary confirmed donors
                 confirmed.forEach(donor => {
                     all.push({
-                        id: `accepted_${req.id}_${donor.donorId}`,
+                        id: `accepted_confirmed_${req.id}_${donor.donorId}`,
                         type: 'donor_accepted',
                         iconType: 'check',
                         iconColor: '#16a34a',
                         iconBg: 'rgba(34,197,94,0.08)',
-                        title: `${donor.donorName || 'A donor'} accepted your request`,
-                        subtitle: `${req.bloodGroup} · ${confirmed.length}/${unitsReq} confirmed`,
+                        title: `${donor.donorName || 'A donor'} accepted your request (Primary Donor)`,
+                        subtitle: `${req.bloodGroup} · ${req.hospitalName || req.hospital || 'Hospital'}`,
                         time: donor.acceptedAt ? getTimeAgo(new Date(donor.acceptedAt).getTime()) : 'Recently',
                         timestamp: donor.acceptedAt ? new Date(donor.acceptedAt).getTime() / 1000 : 0,
-                        actionPath: `/chat/${req.id}`,
+                        actionPath: `/chat/${req.id}/${donor.donorId}`,
                         actionLabel: 'Chat',
                         category: 'patient',
                         isStale: false,
                         isClosed,
+                        requestId: req.id
+                    });
+                });
+
+                // Secondary reserve donors
+                reserve.forEach(donor => {
+                    all.push({
+                        id: `accepted_reserve_${req.id}_${donor.donorId}`,
+                        type: 'donor_accepted',
+                        iconType: 'check',
+                        iconColor: '#d97706',
+                        iconBg: 'rgba(245,158,11,0.08)',
+                        title: `${donor.donorName || 'A donor'} accepted your request (Secondary Donor)`,
+                        subtitle: `${req.bloodGroup} · ${req.hospitalName || req.hospital || 'Hospital'}`,
+                        time: donor.acceptedAt ? getTimeAgo(new Date(donor.acceptedAt).getTime()) : 'Recently',
+                        timestamp: donor.acceptedAt ? new Date(donor.acceptedAt).getTime() / 1000 : 0,
+                        actionPath: `/chat/${req.id}/${donor.donorId}`,
+                        actionLabel: 'Chat',
+                        category: 'patient',
+                        isStale: false,
+                        isClosed,
+                        requestId: req.id
+                    });
+                });
+
+                // Donor withdrawals
+                history.filter(h => h.action === 'cancelled').forEach(h => {
+                    const timestampMs = h.timestamp ? new Date(h.timestamp).getTime() : 0;
+                    all.push({
+                        id: `withdrawn_${req.id}_${h.donorId}_${timestampMs}`,
+                        type: 'donor_withdrawn',
+                        iconType: 'alert',
+                        iconColor: '#dc2626',
+                        iconBg: 'rgba(220,38,38,0.08)',
+                        title: `${h.donorName || 'A donor'} withdrew from your request`,
+                        subtitle: `${req.bloodGroup} · ${req.hospitalName || req.hospital || 'Hospital'}`,
+                        time: timestampMs ? getTimeAgo(timestampMs) : 'Recently',
+                        timestamp: timestampMs ? timestampMs / 1000 : 0,
+                        actionPath: '/patient-dashboard',
+                        actionLabel: 'View',
+                        category: 'patient',
+                        isStale: false,
+                        isClosed: false,
                         requestId: req.id
                     });
                 });
@@ -252,6 +297,19 @@ export default function useNotifications() {
         localStorage.setItem('lifelink_dismissed_notifs', JSON.stringify([]));
     }, []);
 
+    const [seenToastIds, setSeenToastIds] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('lifelink_seen_toast_ids') || '[]'); } catch { return []; }
+    });
+
+    const markToastSeen = useCallback((id) => {
+        setSeenToastIds(prev => {
+            if (prev.includes(id)) return prev;
+            const updated = [...prev, id];
+            try { localStorage.setItem('lifelink_seen_toast_ids', JSON.stringify(updated)); } catch (e) {}
+            return updated;
+        });
+    }, []);
+
     return {
         allNotifications,
         activeNotifications,
@@ -260,6 +318,8 @@ export default function useNotifications() {
         unreadCount,
         readIds,
         dismissedIds,
+        seenToastIds,
+        markToastSeen,
         markAsRead,
         markAllRead,
         dismissNotif,

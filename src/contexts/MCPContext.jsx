@@ -210,9 +210,49 @@ export function MCPProvider({ children }) {
         }
     };
 
+    // Helper to notify patient via Email Webhook
+    const notifyPatientViaEmail = async ({ patientEmail, patientName, actionType, donorName, bloodGroup, hospitalName, requestId }) => {
+        if (!patientEmail) return;
+        try {
+            const payload = {
+                action: actionType, // 'ACCEPTED' or 'WITHDRAWN'
+                patientEmail,
+                patientName: patientName || "Patient",
+                donorName: donorName || "A donor",
+                bloodGroup: bloodGroup || "Blood",
+                hospitalName: hospitalName || "Hospital",
+                requestId: requestId || "",
+                timestamp: new Date().toISOString()
+            };
+
+            // Notify patient notification webhook
+            fetch("https://n8n-zazi.onrender.com/webhook/patient-notification", {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(console.error);
+
+            // Backup dispatch to main alert endpoint
+            fetch("https://n8n-zazi.onrender.com/webhook/blood-alert", {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payload, event: `PATIENT_ALERT_${actionType}` })
+            }).catch(console.error);
+
+            console.log(`MCP: Patient email notification dispatched for ${actionType}`);
+        } catch (err) {
+            console.warn("MCP: Error sending patient email notification", err);
+        }
+    };
+
     // === ENHANCED: Accept Request with Multi-Donor Pool & Race-Condition Safety ===
     const acceptRequest = async (requestId, preferredList = 'reserve') => {
         if (!currentUser) throw new Error("Must be logged in to accept requests");
+
+        let targetPatientEmail = null;
+        let targetPatientName = null;
+        let targetBloodGroup = null;
+        let targetHospital = null;
 
         try {
             const reqRef = doc(db, 'requests', requestId);
@@ -225,6 +265,11 @@ export function MCPProvider({ children }) {
                 if (data.status === 'completed' || data.status === 'closed') {
                     throw new Error("This request is no longer active.");
                 }
+
+                targetPatientEmail = data.patientEmail;
+                targetPatientName = data.patientName;
+                targetBloodGroup = data.bloodGroup;
+                targetHospital = data.hospitalName || data.hospital;
 
                 const confirmed = data.confirmedDonors || [];
                 const reserve = data.reserveDonors || [];
@@ -319,8 +364,20 @@ export function MCPProvider({ children }) {
             });
 
             // Send system message about joining
-            await sendMessage(requestId, `🩸 ${currentUser.displayName || 'A donor'} has joined this request.`, { type: 'system', system: true });
-            console.log("MCP: Request accepted with pool management");
+            await sendMessage(requestId, `🩸 ${currentUser.displayName || 'A donor'} has joined this request.`, { type: 'system', system: true, donorId: currentUser.uid });
+            
+            // Dispatch email alert to patient
+            notifyPatientViaEmail({
+                patientEmail: targetPatientEmail,
+                patientName: targetPatientName,
+                actionType: 'ACCEPTED',
+                donorName: currentUser.displayName || currentUser.email,
+                bloodGroup: targetBloodGroup,
+                hospitalName: targetHospital,
+                requestId: requestId
+            });
+
+            console.log("MCP: Request accepted with pool management and email alert");
         } catch (error) {
             console.error("MCP: Error accepting request", error);
             throw error;
@@ -330,6 +387,12 @@ export function MCPProvider({ children }) {
     // === NEW: Cancel Donor from Request with Auto-Promotion ===
     const cancelDonorFromRequest = async (requestId) => {
         if (!currentUser) return;
+
+        let targetPatientEmail = null;
+        let targetPatientName = null;
+        let targetBloodGroup = null;
+        let targetHospital = null;
+
         try {
             await runTransaction(db, async (transaction) => {
                 const requestRef = doc(db, 'requests', requestId);
@@ -337,6 +400,11 @@ export function MCPProvider({ children }) {
                 if (!requestDoc.exists()) throw new Error("Request not found!");
 
                 const data = requestDoc.data();
+                targetPatientEmail = data.patientEmail;
+                targetPatientName = data.patientName;
+                targetBloodGroup = data.bloodGroup;
+                targetHospital = data.hospitalName || data.hospital;
+
                 let confirmed = [...(data.confirmedDonors || [])];
                 let reserve = [...(data.reserveDonors || [])];
                 const history = [...(data.donorHistory || [])];
@@ -401,8 +469,20 @@ export function MCPProvider({ children }) {
                 });
             });
 
-            await sendMessage(requestId, `⚠️ ${currentUser.displayName || 'A donor'} has withdrawn from this request.`, { type: 'system', system: true });
-            console.log("MCP: Donor cancelled with auto-promotion");
+            await sendMessage(requestId, `⚠️ ${currentUser.displayName || 'A donor'} has withdrawn from this request.`, { type: 'system', system: true, donorId: currentUser.uid });
+            
+            // Dispatch email alert to patient
+            notifyPatientViaEmail({
+                patientEmail: targetPatientEmail,
+                patientName: targetPatientName,
+                actionType: 'WITHDRAWN',
+                donorName: currentUser.displayName || currentUser.email,
+                bloodGroup: targetBloodGroup,
+                hospitalName: targetHospital,
+                requestId: requestId
+            });
+
+            console.log("MCP: Donor cancelled with auto-promotion and email alert");
         } catch (error) {
             console.error("MCP: Error cancelling donor", error);
             throw error;

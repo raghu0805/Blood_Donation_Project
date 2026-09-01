@@ -91,12 +91,15 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
     return children;
 }
 
+import NotificationEngine from './components/NotificationEngine';
+
 function App() {
     return (
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ThemeProvider>
                 <AuthProvider>
                     <MCPProvider>
+                        <NotificationEngine />
                         <Toaster 
                             position="top-center"
                             reverseOrder={false}
