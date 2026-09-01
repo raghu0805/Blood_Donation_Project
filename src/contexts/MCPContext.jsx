@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { calculateDistance, calculateDonationEligibility, calculateDonorPriority } from '../lib/utils';
 import { db } from '../lib/firebase';
@@ -116,6 +116,21 @@ export function MCPProvider({ children }) {
                     updateMessagesState();
                 }, (err) => console.warn("Chat snapshot error:", err));
                 activeSubs.set(ch.key, unsub);
+            }
+        });
+
+        // Clean up subscriptions for channels that are no longer active (e.g. donor withdrew)
+        const validKeys = new Set(relevantChannels.map(c => c.key));
+        activeSubs.forEach((unsub, key) => {
+            if (!validKeys.has(key)) {
+                unsub();
+                activeSubs.delete(key);
+                messagesMap.forEach((val, msgId) => {
+                    if (val.targetDonorId && key.includes(val.targetDonorId)) {
+                        messagesMap.delete(msgId);
+                    }
+                });
+                updateMessagesState();
             }
         });
     }, [currentUser, myRequests, activeRequests]);
