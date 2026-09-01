@@ -73,14 +73,10 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
     }
 
     if (allowedRoles.length > 0 && (!userRole || !allowedRoles.includes(userRole))) {
-        // If user has no role yet, go to selection
+        // If user has no role assigned yet, go to selection
         if (!userRole) return <Navigate to="/role-selection" replace />;
         
-        toast.error("Access Denied: Authorized personnel only.", { id: 'role-unauthorized' });
-        
-        // Redirect to user's assigned dashboard
-        if (userRole === 'donor') return <Navigate to="/donor-dashboard" replace />;
-        if (userRole === 'patient') return <Navigate to="/patient-dashboard" replace />;
+        toast.error("Access Denied: Admin authorization required.", { id: 'role-unauthorized' });
         return <Navigate to="/" replace />;
     }
 
@@ -92,6 +88,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
 }
 
 import NotificationEngine from './components/NotificationEngine';
+import PermissionPrompt from './components/PermissionPrompt';
 
 function App() {
     return (
@@ -100,6 +97,7 @@ function App() {
                 <AuthProvider>
                     <MCPProvider>
                         <NotificationEngine />
+                        <PermissionPrompt />
                         <Toaster 
                             position="top-center"
                             reverseOrder={false}
@@ -141,13 +139,13 @@ function App() {
                                 <Route path="role-selection" element={<RoleSelection />} />
 
                                 <Route path="donor-dashboard" element={
-                                    <ProtectedRoute allowedRoles={['donor']}>
+                                    <ProtectedRoute>
                                         <DonorDashboard />
                                     </ProtectedRoute>
                                 } />
 
                                 <Route path="patient-dashboard" element={
-                                    <ProtectedRoute allowedRoles={['patient']}>
+                                    <ProtectedRoute>
                                         <PatientDashboard />
                                     </ProtectedRoute>
                                 } />

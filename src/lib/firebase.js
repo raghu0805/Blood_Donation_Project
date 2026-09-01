@@ -3,6 +3,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
+import { getMessaging, isSupported } from "firebase/messaging";
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDummyKeyForLocalDevelopment12345",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "lifelink-demo.firebaseapp.com",
@@ -44,9 +46,37 @@ try {
   functionsInstance = null;
 }
 
+let messagingInstance = null;
+if (typeof window !== 'undefined' && app) {
+  isSupported().then(supported => {
+    if (supported) {
+      try {
+        messagingInstance = getMessaging(app);
+      } catch (e) {
+        console.warn("Firebase Messaging initialization error:", e);
+      }
+    }
+  }).catch(() => {});
+}
+
 export const auth = authInstance;
 export const db = dbInstance;
 export const functions = functionsInstance;
+export const getMessagingInstance = async () => {
+  if (messagingInstance) return messagingInstance;
+  if (typeof window !== 'undefined' && app) {
+    const supported = await isSupported().catch(() => false);
+    if (supported) {
+      try {
+        messagingInstance = getMessaging(app);
+        return messagingInstance;
+      } catch (e) {
+        console.warn("Messaging error:", e);
+      }
+    }
+  }
+  return null;
+};
 
 export default app;
 
