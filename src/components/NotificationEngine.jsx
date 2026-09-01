@@ -41,7 +41,6 @@ export default function NotificationEngine() {
                 }
             });
             isInitialMount.current = false;
-            return;
         }
 
         // Process newly arrived notifications in real-time

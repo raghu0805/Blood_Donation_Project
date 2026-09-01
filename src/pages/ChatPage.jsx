@@ -27,26 +27,59 @@ export default function ChatPage() {
     const [isSharingLocation, setIsSharingLocation] = useState(false);
     const messagesEndRef = useRef(null);
 
-    // Fetch Request Details
+    // Real-Time Request Details & Auto-Eject Channel Closure Monitor
     useEffect(() => {
-        const fetchRequest = async () => {
-            if (!requestId) return;
-            try {
-                const docRef = doc(db, 'requests', requestId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setRequestDetails({ id: docSnap.id, ...docSnap.data() });
-                } else {
-                    toast.error("Request not found");
+        if (!requestId || !currentUser) return;
+        const docRef = doc(db, 'requests', requestId);
 
-                    navigate('/');
-                }
-            } catch (err) {
-                console.error("Error fetching request details:", err);
+        const unsubReq = onSnapshot(docRef, (docSnap) => {
+            if (!docSnap.exists()) {
+                toast.error("Request not found");
+                navigate('/', { replace: true });
+                return;
             }
-        };
-        fetchRequest();
-    }, [requestId, navigate]);
+
+            const data = { id: docSnap.id, ...docSnap.data() };
+            setRequestDetails(data);
+
+            const isPatientUser = currentUser.uid === data.patientId;
+            const confirmed = data.confirmedDonors || [];
+            const reserve = data.reserveDonors || [];
+            const activeDonors = [...confirmed, ...reserve];
+
+            // 1. If request is closed or cancelled, auto-eject user
+            if (['closed', 'cancelled'].includes(data.status)) {
+                toast.error("Chat channel closed: This request is no longer active.");
+                navigate(isPatientUser ? '/patient-dashboard' : '/donor-dashboard', { replace: true });
+                return;
+            }
+
+            // 2. Verify target donor connection
+            const targetDonorId = paramDonorId || queryDonorId || (!isPatientUser ? currentUser.uid : null);
+
+            if (!isPatientUser) {
+                // Logged in as Donor: check if current user is still attached to request
+                const isAttached = activeDonors.some(d => d.donorId === currentUser.uid);
+                if (!isAttached) {
+                    toast.error("Chat channel closed: You have withdrawn or been removed from this request.");
+                    navigate('/donor-dashboard', { replace: true });
+                    return;
+                }
+            } else if (targetDonorId) {
+                // Logged in as Patient viewing a specific donor channel
+                const isDonorActive = activeDonors.some(d => d.donorId === targetDonorId);
+                if (!isDonorActive) {
+                    toast.error("Chat channel closed: This donor has withdrawn from the request.");
+                    navigate('/patient-dashboard', { replace: true });
+                    return;
+                }
+            }
+        }, (err) => {
+            console.error("Error listening to request details:", err);
+        });
+
+        return () => unsubReq();
+    }, [requestId, currentUser, navigate, paramDonorId, queryDonorId]);
 
     const isPatient = currentUser?.uid === requestDetails?.patientId;
     const activeTargetDonorId = paramDonorId || queryDonorId || (!isPatient ? currentUser?.uid : null);
