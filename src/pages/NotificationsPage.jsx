@@ -29,6 +29,7 @@ const FILTER_TABS = [
     { key: 'all', label: 'All' },
     { key: 'new_request', label: 'Requests' },
     { key: 'donor_accepted', label: 'Accepted' },
+    { key: 'donor_withdrawn', label: 'Withdrawn' },
     { key: 'fulfilled', label: 'Fulfilled' },
     { key: 'emergency', label: 'Emergency' },
     { key: 'completed', label: 'Completed' },
@@ -180,18 +181,20 @@ export default function NotificationsPage() {
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             notif.type === 'new_request' ? 'bg-orange-50 text-orange-600'
                                 : notif.type === 'donor_accepted' ? 'bg-green-50 text-green-600'
-                                    : notif.type === 'fulfilled' ? 'bg-emerald-50 text-emerald-600'
-                                        : notif.type === 'emergency' ? 'bg-red-50 text-red-600'
-                                            : notif.type === 'completed' ? 'bg-purple-50 text-purple-600'
-                                                : 'bg-slate-50 text-slate-500'
+                                    : notif.type === 'donor_withdrawn' ? 'bg-amber-50 text-amber-700'
+                                        : notif.type === 'fulfilled' ? 'bg-emerald-50 text-emerald-600'
+                                            : notif.type === 'emergency' ? 'bg-red-50 text-red-600'
+                                                : notif.type === 'completed' ? 'bg-purple-50 text-purple-600'
+                                                    : 'bg-slate-50 text-slate-500'
                         }`}>
                             {notif.type === 'new_request' ? 'Request'
                                 : notif.type === 'donor_accepted' ? 'Accepted'
-                                    : notif.type === 'fulfilled' ? 'Fulfilled'
-                                        : notif.type === 'emergency' ? 'Emergency'
-                                            : notif.type === 'completed' ? 'Completed'
-                                                : notif.type === 'pickup' ? 'Pickup'
-                                                    : notif.type}
+                                    : notif.type === 'donor_withdrawn' ? 'Withdrawn'
+                                        : notif.type === 'fulfilled' ? 'Fulfilled'
+                                            : notif.type === 'emergency' ? 'Emergency'
+                                                : notif.type === 'completed' ? 'Completed'
+                                                    : notif.type === 'pickup' ? 'Pickup'
+                                                        : notif.type}
                         </span>
                     </div>
                 </div>
