@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Bell, CheckCircle, AlertTriangle, Users, ArrowRight } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, Users, ArrowRight, MessageCircle } from 'lucide-react';
 import useNotifications from '../hooks/useNotifications';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
  *   1. New blood requests matching a donor's blood group
  *   2. Donor accepting a patient's request
  *   3. Donor withdrawing from a patient's request
+ *   4. Chat messages sent by another user
  */
 export default function NotificationEngine() {
     const navigate = useNavigate();
@@ -65,6 +66,11 @@ export default function NotificationEngine() {
                     toastMessage = `${n.title}. Go to the Requests section to review status.`;
                     accentColor = "#d97706";
                     IconComponent = AlertTriangle;
+                } else if (n.type === 'chat_message') {
+                    toastTitle = "New Message Received";
+                    toastMessage = `${n.title}: ${n.subtitle}`;
+                    accentColor = "#2563eb";
+                    IconComponent = MessageCircle;
                 } else if (n.type === 'fulfilled') {
                     toastTitle = "Request Fulfilled";
                     toastMessage = n.title;
