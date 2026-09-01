@@ -3,6 +3,7 @@ import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { calculateDonationEligibility } from '../lib/utils';
+import { requestFCMToken } from '../lib/fcm';
 
 const AuthContext = createContext({});
 
@@ -60,6 +61,11 @@ export function AuthProvider({ children }) {
 
                         setUserRole(userData.role || 'user');
                         setCurrentUser({ ...user, ...userData });
+
+                        // Auto-request / sync FCM push notification token if granted
+                        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                            requestFCMToken(user.uid).catch(err => console.warn("Auth: FCM token auto-sync warning", err));
+                        }
                     } else {
                         console.log("Auth: Profile missing in DB. Attempting self-healing...");
                         // 1. Set temporary user state so app doesn't crash or logout
