@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         let unsubscribeSnapshot = null;
 
+        if (!auth) {
+            setLoading(false);
+            return;
+        }
+
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             if (unsubscribeSnapshot) {
                 unsubscribeSnapshot();
