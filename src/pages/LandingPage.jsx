@@ -209,46 +209,96 @@ function Features() {
 }
 
 const bloodInfo = {
-  "O-":  { label: "Universal Donor", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
-  "O+":  { label: "Most Common",     canGiveTo: ["O+", "A+", "B+", "AB+"],                           canReceiveFrom: ["O-", "O+"] },
-  "A-":  { label: "Rare Type",       canGiveTo: ["A-", "A+", "AB-", "AB+"],                          canReceiveFrom: ["O-", "A-"] },
-  "A+":  { label: "High Demand",     canGiveTo: ["A+", "AB+"],                                        canReceiveFrom: ["O-", "O+", "A-", "A+"] },
-  "B-":  { label: "Rare Type",       canGiveTo: ["B-", "B+", "AB-", "AB+"],                          canReceiveFrom: ["O-", "B-"] },
-  "B+":  { label: "High Demand",     canGiveTo: ["B+", "AB+"],                                        canReceiveFrom: ["O-", "O+", "B-", "B+"] },
-  "AB-": { label: "Rare Type",       canGiveTo: ["AB-", "AB+"],                                       canReceiveFrom: ["O-", "A-", "B-", "AB-"] },
-  "AB+": { label: "Universal Recipient", canGiveTo: ["AB+"],                                          canReceiveFrom: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
+  "O-":  { label: "Universal Donor", category: "Standard", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
+  "O+":  { label: "Most Common Type", category: "Standard", canGiveTo: ["O+", "A+", "B+", "AB+"], canReceiveFrom: ["O-", "O+"] },
+  "A-":  { label: "Rare Type", category: "Standard", canGiveTo: ["A-", "A+", "AB-", "AB+"], canReceiveFrom: ["O-", "A-"] },
+  "A+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["A+", "AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+"] },
+  "B-":  { label: "Rare Type", category: "Standard", canGiveTo: ["B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-", "B-"] },
+  "B+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["B+", "AB+"], canReceiveFrom: ["O-", "O+", "B-", "B+"] },
+  "AB-": { label: "Rare Type", category: "Standard", canGiveTo: ["AB-", "AB+"], canReceiveFrom: ["O-", "A-", "B-", "AB-"] },
+  "AB+": { label: "Universal Recipient", category: "Standard", canGiveTo: ["AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
+
+  "A1+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A+", "A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "O+", "O-"] },
+  "A1-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A+", "A-", "A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "O-"] },
+  "A2+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A2+", "A+", "A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "O+", "O-"] },
+  "A2-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A2+", "A2-", "A+", "A-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "O-"] },
+  "A1B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "B+", "B-", "O+", "O-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"] },
+  "A1B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "B-", "O-", "A1B-", "A2B-", "AB-"] },
+  "A2B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "B+", "B-", "O+", "O-", "A2B+", "A2B-"] },
+  "A2B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "B-", "O-", "A2B-"] },
+
+  "Bombay Blood Group": { label: "Extremely Rare (hh Antigen)", category: "Rare Phenotypes", canGiveTo: ["Bombay", "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["Bombay Blood Group"] },
+  "INRA": { label: "Ultra-Rare Indian Phenotype", category: "Rare Phenotypes", canGiveTo: ["INRA", "Compatible Rare Donors"], canReceiveFrom: ["INRA"] },
+  "Rh-null": { label: "Golden Blood (Universal Rh)", category: "Rare Phenotypes", canGiveTo: ["Rh-null", "All Rh Negative / Positive Types"], canReceiveFrom: ["Rh-null"] }
 };
 
 function BloodFinder() {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState("O-");
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  const categories = [
+    { id: "All", label: `All Types (${ALL_BLOOD_GROUPS.length})` },
+    { id: "Standard", label: "Standard Types (8)" },
+    { id: "Subgroups", label: "Subgroups (8)" },
+    { id: "Rare Phenotypes", label: "Rare Phenotypes (3)" }
+  ];
+
+  const filteredGroups = ALL_BLOOD_GROUPS.filter((g) => {
+    if (activeCategory === "All") return true;
+    return bloodInfo[g]?.category === activeCategory;
+  });
+
   const info = selected ? bloodInfo[selected] : null;
 
   return (
-    <section className="py-24 px-6" style={{ background: "linear-gradient(180deg, #fff5f5 0%, #ffffff 100%)" }}>
-      <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} className="mx-auto max-w-3xl text-center">
-        <motion.div variants={fadeUp} className="mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Blood Type Compatibility</h2>
-          <p className="mt-4 text-slate-500">Select your blood group to see who you can give to and receive from.</p>
+    <section className="py-24 px-4 sm:px-6" style={{ background: "linear-gradient(180deg, #fff5f5 0%, #ffffff 100%)" }}>
+      <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} className="mx-auto max-w-4xl text-center">
+        <motion.div variants={fadeUp} className="mb-10">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Blood Type Compatibility</h2>
+          <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
+            Select your blood group to see who you can give to and receive from. Supports all 19 standard blood types, subgroups, and rare phenotypes.
+          </p>
         </motion.div>
 
-        <motion.div variants={fadeUp} custom={1} className="flex flex-wrap justify-center gap-3">
-          {Object.keys(bloodInfo).map((g) => {
+        {/* Category Filter Chips */}
+        <motion.div variants={fadeUp} custom={1} className="flex flex-wrap justify-center gap-2 mb-8">
+          {categories.map((cat) => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
+                  isActive
+                    ? "bg-slate-900 text-white shadow-md"
+                    : "bg-white/80 text-slate-600 hover:bg-red-50 border border-slate-200/80"
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </motion.div>
+
+        {/* Blood Group Selection Buttons */}
+        <motion.div variants={fadeUp} custom={2} className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-3xl mx-auto">
+          {filteredGroups.map((g) => {
             const isSelected = selected === g;
             return (
-              <motion.button key={g} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.95 }}
+              <motion.button key={g} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
                 onClick={() => setSelected(isSelected ? null : g)}
-                className="rounded-2xl px-6 py-3 text-base font-bold transition-all duration-200"
+                className="rounded-2xl px-3.5 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition-all duration-200"
                 style={isSelected ? {
                   background: "linear-gradient(135deg, #dc2626, #d4a017)",
                   color: "#fff",
                   boxShadow: "0 8px 24px rgba(220,38,38,0.3)",
                   border: "1.5px solid transparent",
                 } : {
-                  background: "rgba(255,255,255,0.8)",
+                  background: "rgba(255,255,255,0.85)",
                   backdropFilter: "blur(10px)",
                   border: "1.5px solid rgba(148,163,184,0.25)",
                   color: "#374151",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
                 }}>
                 {g}
               </motion.button>
@@ -256,33 +306,57 @@ function BloodFinder() {
           })}
         </motion.div>
 
+        {/* Selected Blood Group Details Card */}
         <motion.div animate={{ opacity: info ? 1 : 0, y: info ? 0 : 12 }} transition={{ duration: 0.35 }} className="mt-8">
           {info && (
-            <div className="rounded-3xl p-6 text-left" style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1px solid rgba(220,38,38,0.15)", boxShadow: "0 8px 32px rgba(220,38,38,0.08)" }}>
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
-                  <Droplets size={20} className="text-white" />
+            <div className="rounded-3xl p-5 sm:p-7 text-left" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(220,38,38,0.15)", boxShadow: "0 12px 40px rgba(220,38,38,0.08)" }}>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-red-100/80 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl shrink-0 shadow-md" style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
+                    <Droplets size={22} className="text-white animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl sm:text-3xl font-black text-gray-900">{selected}</span>
+                      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] sm:text-xs font-bold text-red-700 uppercase tracking-wider">
+                        {info.category}
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-medium text-slate-500">— {info.label}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-2xl font-bold text-gray-900">{selected}</span>
-                  <span className="ml-2 text-base font-medium text-slate-500">— {info.label}</span>
+
+                <div className="text-right hidden sm:block">
+                  <span className="text-xs text-slate-400 font-semibold block">LifeLink Compatibility Engine</span>
+                  <span className="text-[11px] font-bold text-emerald-600">Verified Medical Matching</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl p-4" style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.12)" }}>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-red-500">Can Donate To</p>
+                <div className="rounded-2xl p-4 sm:p-5" style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.12)" }}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-widest text-red-600">Can Donate To</p>
+                    <span className="text-[10px] font-extrabold text-red-500 bg-red-100/80 px-2 py-0.5 rounded-full">
+                      {info.canGiveTo.length} Matches
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {info.canGiveTo.map((g) => (
-                      <span key={g} className="rounded-xl px-3 py-1 text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, #dc2626, #ef4444)" }}>{g}</span>
+                      <span key={g} className="rounded-xl px-3 py-1 text-xs sm:text-sm font-bold text-white shadow-xs" style={{ background: "linear-gradient(135deg, #dc2626, #ef4444)" }}>{g}</span>
                     ))}
                   </div>
                 </div>
-                <div className="rounded-2xl p-4" style={{ background: "rgba(212,160,23,0.06)", border: "1px solid rgba(212,160,23,0.18)" }}>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-amber-600">Can Receive From</p>
+
+                <div className="rounded-2xl p-4 sm:p-5" style={{ background: "rgba(212,160,23,0.05)", border: "1px solid rgba(212,160,23,0.18)" }}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-widest text-amber-700">Can Receive From</p>
+                    <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                      {info.canReceiveFrom.length} Matches
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {info.canReceiveFrom.map((g) => (
-                      <span key={g} className="rounded-xl px-3 py-1 text-sm font-bold" style={{ background: "linear-gradient(135deg, #d4a017, #f59e0b)", color: "#1a1a1a" }}>{g}</span>
+                      <span key={g} className="rounded-xl px-3 py-1 text-xs sm:text-sm font-bold shadow-xs" style={{ background: "linear-gradient(135deg, #d4a017, #f59e0b)", color: "#1a1a1a" }}>{g}</span>
                     ))}
                   </div>
                 </div>

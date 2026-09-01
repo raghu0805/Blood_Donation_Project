@@ -12,6 +12,7 @@ import { Button } from '../components/Button';
 import LandingNavbar from '../components/LandingNavbar';
 import UserAvatar from '../components/UserAvatar';
 import LoadingOverlay from '../components/LoadingOverlay';
+import ImageCropModal from '../components/ImageCropModal';
 import { toast } from 'react-hot-toast';
 
 const fadeUp = {
@@ -110,6 +111,8 @@ export default function ProfilePage() {
     const [donationsReceived, setDonationsReceived] = useState([]);
     const [showIntakeModal, setShowIntakeModal] = useState(false);
     const [intakeData, setIntakeData] = useState({ donorName: '', bloodGroup: 'O+', quantity: 1, notes: '' });
+    const [cropModalOpen, setCropModalOpen] = useState(false);
+    const [rawImageSrc, setRawImageSrc] = useState(null);
 
     useEffect(() => {
         if (currentUser) {
@@ -158,15 +161,23 @@ export default function ProfilePage() {
         }
     }, [donationsMade]);
 
-    const handleAvatar = async (e) => {
+    const handleAvatar = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setRawImageSrc(event.target.result);
+            setCropModalOpen(true);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveCroppedAvatar = async (croppedBase64) => {
         setUploading(true);
         try {
-            const compressedBase64 = await compressImage(file);
-            await updateUserProfile({ photoURL: compressedBase64 });
-            setForm(prev => ({ ...prev, photoURL: compressedBase64 }));
-            if (userRole === 'admin') toast.success("Profile Photo Updated!");
+            await updateUserProfile({ photoURL: croppedBase64 });
+            setForm(prev => ({ ...prev, photoURL: croppedBase64 }));
+            toast.success("Profile Photo Updated!");
         } catch (error) {
             console.error(error);
             toast.error("Failed to upload photo.");
@@ -576,6 +587,13 @@ export default function ProfilePage() {
                     </motion.div>
                 </motion.div>
             </div>
+
+            <ImageCropModal 
+                isOpen={cropModalOpen}
+                imageSrc={rawImageSrc}
+                onClose={() => setCropModalOpen(false)}
+                onSave={handleSaveCroppedAvatar}
+            />
         </div>
     );
 }

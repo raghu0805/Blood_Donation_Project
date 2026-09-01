@@ -19,11 +19,18 @@ export default function DemoModal({ isOpen, onClose }) {
     const [isPlaying, setIsPlaying] = useState(true);
 
     const handleNext = useCallback(() => {
-        setScene((prev) => (prev < SCENES_DATA.length - 1 ? prev + 1 : 0));
-    }, []);
+        setScene((prev) => {
+            if (prev < SCENES_DATA.length - 1) {
+                return prev + 1;
+            } else {
+                onClose?.();
+                return prev;
+            }
+        });
+    }, [onClose]);
 
     const handlePrev = useCallback(() => {
-        setScene((prev) => (prev > 0 ? prev - 1 : SCENES_DATA.length - 1));
+        setScene((prev) => (prev > 0 ? prev - 1 : 0));
     }, []);
 
     useEffect(() => {
