@@ -102,17 +102,24 @@ export default function LandingNavbar({ activePath = "" }) {
               <>
                 {/* Notification Bell */}
                 <div className="relative hidden sm:block" ref={notifRef}>
-                  <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen && unreadCount > 0) markAllRead(); }}
+                  <motion.button 
+                    key={`bell_${unreadCount}`}
+                    animate={unreadCount > 0 ? { scale: [1, 1.25, 0.9, 1.1, 1], rotate: [0, -10, 10, -5, 0] } : { scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen && unreadCount > 0) markAllRead(); }}
                     className="relative p-1.5 rounded-xl hover:bg-red-50 transition-colors">
                     <Bell size={17} className={`transition-colors ${notifOpen ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`} />
                     {unreadCount > 0 && (
                       <motion.span
-                        initial={{ scale: 0 }} animate={{ scale: 1 }}
+                        key={`badge_${unreadCount}`}
+                        initial={{ scale: 0 }} 
+                        animate={{ scale: [0.5, 1.3, 1] }}
+                        transition={{ duration: 0.3 }}
                         className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white ring-2 ring-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </motion.span>
                     )}
-                  </button>
+                  </motion.button>
 
                   {/* Notification Dropdown */}
                   <AnimatePresence>

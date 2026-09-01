@@ -16,7 +16,7 @@ import { canDonate } from '../lib/utils';
  */
 export default function useNotifications() {
     const { currentUser, userRole } = useAuth();
-    const { activeRequests, myRequests } = useMCP();
+    const { activeRequests, myRequests, userChatMessages } = useMCP();
 
     const [dismissedIds, setDismissedIds] = useState(() => {
         try { return JSON.parse(localStorage.getItem('lifelink_dismissed_notifs') || '[]'); } catch { return []; }
@@ -231,6 +231,37 @@ export default function useNotifications() {
             });
         }
 
+        // === CHAT MESSAGE NOTIFICATIONS ===
+        if (userChatMessages && userChatMessages.length > 0) {
+            userChatMessages.forEach(msg => {
+                const createdAtMs = msg.createdAt?.seconds ? msg.createdAt.seconds * 1000 : (typeof msg.createdAt === 'number' ? msg.createdAt : Date.now());
+                const senderName = msg.senderName || 'A user';
+                const textSnippet = msg.text ? (msg.text.length > 45 ? msg.text.slice(0, 45) + '...' : msg.text) : 'Sent an attachment';
+
+                const actionPath = msg.targetDonorId 
+                    ? `/chat/${msg.requestId}/${msg.targetDonorId}` 
+                    : `/chat/${msg.requestId}`;
+
+                all.push({
+                    id: `chat_msg_${msg.id}`,
+                    type: 'chat_message',
+                    iconType: 'message',
+                    iconColor: '#2563eb',
+                    iconBg: 'rgba(37,99,235,0.08)',
+                    title: `New message from ${senderName}`,
+                    subtitle: `"${textSnippet}" · ${msg.requestBloodGroup || 'Blood Request'}`,
+                    time: getTimeAgo(createdAtMs),
+                    timestamp: msg.createdAt?.seconds || Math.floor(createdAtMs / 1000),
+                    actionPath: actionPath,
+                    actionLabel: 'Reply',
+                    category: msg.isForPatient ? 'patient' : 'donor',
+                    isStale: false,
+                    isClosed: false,
+                    requestId: msg.requestId
+                });
+            });
+        }
+
         // Sort by most recent
         all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
@@ -243,7 +274,7 @@ export default function useNotifications() {
         });
 
         return { allNotifications: all, activeNotifications: active };
-    }, [currentUser, userRole, activeRequests, myRequests]);
+    }, [currentUser, userRole, activeRequests, myRequests, userChatMessages]);
 
     // Visible = active minus dismissed
     const visibleNotifs = activeNotifications.filter(n => !dismissedIds.includes(n.id));

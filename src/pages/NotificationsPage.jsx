@@ -30,6 +30,7 @@ const FILTER_TABS = [
     { key: 'new_request', label: 'Requests' },
     { key: 'donor_accepted', label: 'Accepted' },
     { key: 'donor_withdrawn', label: 'Withdrawn' },
+    { key: 'chat_message', label: 'Messages' },
     { key: 'fulfilled', label: 'Fulfilled' },
     { key: 'emergency', label: 'Emergency' },
     { key: 'completed', label: 'Completed' },
@@ -182,19 +183,21 @@ export default function NotificationsPage() {
                             notif.type === 'new_request' ? 'bg-orange-50 text-orange-600'
                                 : notif.type === 'donor_accepted' ? 'bg-green-50 text-green-600'
                                     : notif.type === 'donor_withdrawn' ? 'bg-amber-50 text-amber-700'
-                                        : notif.type === 'fulfilled' ? 'bg-emerald-50 text-emerald-600'
-                                            : notif.type === 'emergency' ? 'bg-red-50 text-red-600'
-                                                : notif.type === 'completed' ? 'bg-purple-50 text-purple-600'
-                                                    : 'bg-slate-50 text-slate-500'
+                                        : notif.type === 'chat_message' ? 'bg-blue-50 text-blue-600'
+                                            : notif.type === 'fulfilled' ? 'bg-emerald-50 text-emerald-600'
+                                                : notif.type === 'emergency' ? 'bg-red-50 text-red-600'
+                                                    : notif.type === 'completed' ? 'bg-purple-50 text-purple-600'
+                                                        : 'bg-slate-50 text-slate-500'
                         }`}>
                             {notif.type === 'new_request' ? 'Request'
                                 : notif.type === 'donor_accepted' ? 'Accepted'
                                     : notif.type === 'donor_withdrawn' ? 'Withdrawn'
-                                        : notif.type === 'fulfilled' ? 'Fulfilled'
-                                            : notif.type === 'emergency' ? 'Emergency'
-                                                : notif.type === 'completed' ? 'Completed'
-                                                    : notif.type === 'pickup' ? 'Pickup'
-                                                        : notif.type}
+                                        : notif.type === 'chat_message' ? 'Message'
+                                            : notif.type === 'fulfilled' ? 'Fulfilled'
+                                                : notif.type === 'emergency' ? 'Emergency'
+                                                    : notif.type === 'completed' ? 'Completed'
+                                                        : notif.type === 'pickup' ? 'Pickup'
+                                                            : notif.type}
                         </span>
                     </div>
                 </div>
@@ -220,22 +223,6 @@ export default function NotificationsPage() {
                     )}
                 </div>
             </motion.div>
-        );
-    };
-
-    const renderGroup = (title, notifs, startIdx = 0) => {
-        if (notifs.length === 0) return null;
-        return (
-            <div className="mb-6">
-                <div className="flex items-center gap-3 mb-3 px-1">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
-                    <span className="text-[10px] text-slate-300 font-medium">{notifs.length} notification{notifs.length > 1 ? 's' : ''}</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                    {notifs.map((n, i) => renderNotifCard(n, startIdx + i))}
-                </div>
-            </div>
         );
     };
 
@@ -375,7 +362,7 @@ export default function NotificationsPage() {
                     </motion.div>
                 )}
 
-                {/* Notification List */}
+                {/* Notification List — Top to Bottom Flat List */}
                 {displayNotifs.length === 0 ? (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -398,16 +385,13 @@ export default function NotificationsPage() {
                                     ? 'Cleared notifications will appear here'
                                     : activeTab === 'all'
                                         ? 'Notifications from requests and donors will show here'
-                                        : 'New blood requests and donor responses will appear here'}
+                                        : 'New blood requests, donor responses, and messages will appear here'}
                             </p>
                         </div>
                     </motion.div>
                 ) : (
-                    <div>
-                        {renderGroup('Today', groups.today, 0)}
-                        {renderGroup('Yesterday', groups.yesterday, groups.today.length)}
-                        {renderGroup('This Week', groups.thisWeek, groups.today.length + groups.yesterday.length)}
-                        {renderGroup('Older', groups.older, groups.today.length + groups.yesterday.length + groups.thisWeek.length)}
+                    <div className="flex flex-col gap-2">
+                        {displayNotifs.map((n, i) => renderNotifCard(n, i))}
                     </div>
                 )}
 

@@ -21,6 +21,7 @@ export function MCPProvider({ children }) {
     const [locationError, setLocationError] = useState(null);
     const [isLoadingActive, setIsLoadingActive] = useState(true);
     const [isLoadingMy, setIsLoadingMy] = useState(true);
+    const [userChatMessages, setUserChatMessages] = useState([]);
 
     // Location Tracking Effect
     useEffect(() => {
@@ -39,6 +40,102 @@ export function MCPProvider({ children }) {
             );
         }
     }, [currentUser]);
+
+    // Real-Time Chat Messages Listener across active requests
+    useEffect(() => {
+        if (!currentUser) return;
+        const unsubscribes = [];
+        const messagesMap = new Map();
+
+        const updateMessagesState = () => {
+            const allMsgs = Array.from(messagesMap.values());
+            allMsgs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            setUserChatMessages(allMsgs);
+        };
+
+        const relevantRequests = [];
+        if (myRequests) {
+            myRequests.forEach(r => relevantRequests.push({ req: r, role: 'patient' }));
+        }
+        if (activeRequests) {
+            activeRequests.forEach(r => {
+                const isConfirmed = (r.confirmedDonors || []).some(d => d.donorId === currentUser.uid);
+                const isReserve = (r.reserveDonors || []).some(d => d.donorId === currentUser.uid);
+                if (isConfirmed || isReserve) {
+                    relevantRequests.push({ req: r, role: 'donor' });
+                }
+            });
+        }
+
+        relevantRequests.forEach(({ req, role }) => {
+            const qMain = query(collection(db, 'requests', req.id, 'messages'));
+            const unsubMain = onSnapshot(qMain, (snap) => {
+                snap.docs.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.senderId !== currentUser.uid && !data.system) {
+                        messagesMap.set(docSnap.id, {
+                            id: docSnap.id,
+                            requestId: req.id,
+                            requestBloodGroup: req.bloodGroup,
+                            isForPatient: role === 'patient',
+                            ...data
+                        });
+                    }
+                });
+                updateMessagesState();
+            });
+            unsubscribes.push(unsubMain);
+
+            if (role === 'patient') {
+                const donors = [...(req.confirmedDonors || []), ...(req.reserveDonors || [])];
+                donors.forEach(donor => {
+                    if (donor.donorId) {
+                        const qSub = query(collection(db, 'requests', req.id, 'chats', donor.donorId, 'messages'));
+                        const unsubSub = onSnapshot(qSub, (snap) => {
+                            snap.docs.forEach(docSnap => {
+                                const data = docSnap.data();
+                                if (data.senderId !== currentUser.uid && !data.system) {
+                                    messagesMap.set(docSnap.id, {
+                                        id: docSnap.id,
+                                        requestId: req.id,
+                                        requestBloodGroup: req.bloodGroup,
+                                        targetDonorId: donor.donorId,
+                                        isForPatient: true,
+                                        ...data
+                                    });
+                                }
+                            });
+                            updateMessagesState();
+                        });
+                        unsubscribes.push(unsubSub);
+                    }
+                });
+            } else if (role === 'donor') {
+                const qSub = query(collection(db, 'requests', req.id, 'chats', currentUser.uid, 'messages'));
+                const unsubSub = onSnapshot(qSub, (snap) => {
+                    snap.docs.forEach(docSnap => {
+                        const data = docSnap.data();
+                        if (data.senderId !== currentUser.uid && !data.system) {
+                            messagesMap.set(docSnap.id, {
+                                id: docSnap.id,
+                                requestId: req.id,
+                                requestBloodGroup: req.bloodGroup,
+                                targetDonorId: currentUser.uid,
+                                isForPatient: false,
+                                ...data
+                            });
+                        }
+                    });
+                    updateMessagesState();
+                });
+                unsubscribes.push(unsubSub);
+            }
+        });
+
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
+    }, [currentUser, myRequests, activeRequests]);
 
     // Real-time Firestore Listeners
     useEffect(() => {
@@ -771,7 +868,7 @@ export function MCPProvider({ children }) {
     };
 
     const value = {
-        availableDonors, activeRequests, myRequests, geminiAnalysis, activeTrackingSession,
+        availableDonors, activeRequests, myRequests, userChatMessages, geminiAnalysis, activeTrackingSession,
         isLoadingActive, isLoadingMy,
         findMatches, requestGeminiAnalysis, startTracking,
         broadcastRequest, toggleDonorAvailability, acceptRequest,
