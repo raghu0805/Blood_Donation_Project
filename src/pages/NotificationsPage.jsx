@@ -53,30 +53,14 @@ export default function NotificationsPage() {
         unreadCount
     } = useNotifications();
 
-    const [activeTab, setActiveTab] = useState('active');     // 'active' | 'cleared' | 'all'
-    const [filterType, setFilterType] = useState('all');       // Filter by notification type
+    const [filterType, setFilterType] = useState('all');
 
-    // Determine which notifications to display based on tab
+    // Single common notifications list with filter support
     const getDisplayNotifications = () => {
-        let list;
-        switch (activeTab) {
-            case 'cleared':
-                list = dismissedNotifs;
-                break;
-            case 'all':
-                list = allNotifications;
-                break;
-            case 'active':
-            default:
-                list = visibleNotifs;
-                break;
-        }
-
-        // Apply type filter
+        let list = visibleNotifs;
         if (filterType !== 'all') {
             list = list.filter(n => n.type === filterType);
         }
-
         return list;
     };
 
@@ -271,45 +255,11 @@ export default function NotificationsPage() {
                     </div>
                 </motion.div>
 
-                {/* View Tabs */}
+                {/* Type Filter Chips */}
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 }}
-                    className="flex items-center gap-1 p-1 rounded-2xl mb-4"
-                    style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(148,163,184,0.12)", backdropFilter: "blur(8px)" }}
-                >
-                    {[
-                        { key: 'active', label: 'Active', count: visibleNotifs.length },
-                        { key: 'cleared', label: 'Cleared', count: dismissedNotifs.length },
-                        { key: 'all', label: 'All History', count: allNotifications.length },
-                    ].map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                                activeTab === tab.key
-                                    ? 'bg-white text-red-600 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-600'
-                            }`}
-                        >
-                            {tab.label}
-                            {tab.count > 0 && (
-                                <span className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold ${
-                                    activeTab === tab.key ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'
-                                }`}>
-                                    {tab.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </motion.div>
-
-                {/* Type Filter */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
                     className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 no-scrollbar"
                 >
                     <Filter size={12} className="text-slate-300 shrink-0" />
