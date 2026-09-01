@@ -189,7 +189,6 @@ function FeatureCard({ icon: Icon, iconColor, title, desc, delay }) {
 
 function Features() {
   const cards = [
-    { icon: Zap, iconColor: "#d4a017", title: "AI Smart Matching", desc: "Our algorithm matches blood types, location, and urgency in milliseconds for the fastest possible connection." },
     { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Watch your donor or recipient move on a live map. Full transparency from request to delivery." },
     { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is ID-verified and health-screened. You can trust who shows up." },
     { icon: Bell, iconColor: "#dc2626", title: "Emergency Alerts", desc: "Instant push alerts to nearby donors the moment a critical request is posted." },
@@ -201,7 +200,7 @@ function Features() {
           <h2 className="text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Why Choose LifeLink?</h2>
           <p className="mt-4 text-slate-500">Engineered for emergencies. Built for humanity.</p>
         </motion.div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c, i) => <FeatureCard key={c.title} {...c} delay={i} />)}
         </div>
       </motion.div>
