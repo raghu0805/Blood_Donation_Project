@@ -418,11 +418,11 @@ export default function ProfilePage() {
                     {/* Avatar */}
                     <motion.div variants={fadeUp} custom={3} className="flex justify-center">
                         <div className="relative">
-                            <div className="h-24 w-24 rounded-3xl overflow-hidden shadow-lg" style={{ border: "2px solid rgba(220,38,38,0.2)" }}>
+                            <div className="h-28 w-28 rounded-full overflow-hidden shadow-xl" style={{ border: "3px solid rgba(220,38,38,0.2)" }}>
                                 <UserAvatar 
                                     photoURL={form.photoURL} 
                                     name={form.fullName || currentUser?.email} 
-                                    className="h-full w-full"
+                                    className="h-full w-full object-cover"
                                     textClassName="text-3xl"
                                 />
                                 {uploading && (
@@ -431,9 +431,9 @@ export default function ProfilePage() {
                                     </div>
                                 )}
                             </div>
-                            <label className={`absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl shadow-lg transition-transform hover:scale-110 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
-                                <Camera size={14} className="text-white" />
+                            <label className={`absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", border: "2px solid #ffffff" }}>
+                                <Camera size={15} className="text-white" />
                                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} disabled={uploading} />
                             </label>
                         </div>

@@ -1,3 +1,35 @@
+<<<<<<< HEAD
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView, animate, AnimatePresence } from "framer-motion";
+import { useNavigate, Link, Navigate } from "react-router-dom";
+import { Zap, MapPin, ShieldCheck, Bell, Heart, ChevronRight, Droplets, Clock, Phone, CheckCircle, Sparkles } from "lucide-react";
+import LandingNavbar from "../components/LandingNavbar";
+import DemoModal from "../components/DemoModal";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
+import { calculateDonationEligibility, ALL_BLOOD_GROUPS } from "../lib/utils";
+import { useMCP } from "../contexts/MCPContext";
+import { db } from "../lib/firebase";
+import { collection, addDoc, updateDoc, query, where, getDocs, onSnapshot, doc, serverTimestamp, setDoc, deleteDoc, increment } from "firebase/firestore";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
+
+import pecLogo from "../assets/college logo copy.jpeg";
+import yrcLogo from "../assets/yrc logo.png";
+import appLogo from "../assets/app logo copy.png";
+
+import slide1 from "../assets/WhatsApp Image 2026-08-31 at 12.13.29 PM.jpeg";
+import slide2 from "../assets/WhatsApp Image 2026-08-31 at 12.13.29 PM (1).jpeg";
+import slide3 from "../assets/WhatsApp Image 2026-09-02 at 1.34.55 PM.jpeg";
+import slide4 from "../assets/WhatsApp Image 2026-09-01 at 8.11.41 AM (2).jpeg";
+import slide5 from "../assets/WhatsApp Image 2026-09-01 at 8.11.39 AM.jpeg";
+import slide6 from "../assets/WhatsApp Image 2026-09-01 at 8.11.39 AM (1).jpeg";
+import slide7 from "../assets/WhatsApp Image 2026-09-01 at 8.11.40 AM.jpeg";
+import slide8 from "../assets/WhatsApp Image 2026-09-01 at 8.11.40 AM (1).jpeg";
+import slide9 from "../assets/WhatsApp Image 2026-09-01 at 8.11.40 AM (2).jpeg";
+import slide10 from "../assets/WhatsApp Image 2026-09-01 at 8.11.41 AM.jpeg";
+import slide11 from "../assets/WhatsApp Image 2026-09-01 at 8.13.41 AM.jpeg";
+=======
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '../components/Button';
@@ -13,6 +45,7 @@ import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, query, where, getDocs, onSnapshot, doc, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
 import { Card } from '../components/Card';
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -55,43 +88,94 @@ function Particles() {
   );
 }
 
+function HeroSlider() {
+  const [current, setCurrent] = useState(0);
+  const slides = [
+    { src: slide1,  alt: "Save Lives" },
+    { src: slide2,  alt: "Be a Hero" },
+    { src: slide3,  alt: "Every Drop Counts" },
+    { src: slide4,  alt: "Join LifeLink" },
+    { src: slide5,  alt: "Real-Time Matching" },
+    { src: slide6,  alt: "Verified Donors" },
+    { src: slide7,  alt: "Emergency Response" },
+    { src: slide8,  alt: "Community of Hope" },
+    { src: slide9,  alt: "One Donation" },
+    { src: slide10, alt: "Multiple Lives", pad: false },
+    { src: slide11, alt: "Be a Hero",     pad: true  },
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrent(c => (c + 1) % slides.length), 5000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  return (
+    <div className="relative w-full h-[480px] sm:h-[550px] lg:h-[600px] overflow-hidden rounded-[2.5rem] shadow-2xl bg-slate-900/5" style={{ border: "1.5px solid rgba(220,38,38,0.12)" }}>
+      <AnimatePresence mode="wait">
+        <motion.div key={current}
+          initial={{ opacity: 0, x: 60 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -60 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 flex items-center justify-center">
+          {slides[current].src ? (
+            slides[current].pad ? (
+              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-contain" />
+            ) : (
+              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-cover object-top" />
+            )
+          ) : (
+            <div className="flex h-full w-full items-center justify-center" style={{ background: "linear-gradient(135deg, #fee2e2, #fef3c7)" }}>
+              <div className="text-center">
+                <Droplets size={48} className="mx-auto text-red-300 mb-2" />
+                <p className="text-sm font-medium text-slate-400">{slides[current].alt}</p>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dots */}
+      <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 flex-wrap px-4">
+        {slides.map((_, i) => (
+          <button key={i} onClick={() => setCurrent(i)}
+            className="rounded-full transition-all duration-300"
+            style={{ width: i === current ? 20 : 6, height: 6, background: i === current ? "#dc2626" : "rgba(255,255,255,0.6)" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Hero() {
   const navigate = useNavigate();
   return (
-    <section className="relative min-h-screen overflow-hidden px-6 pt-28 pb-16" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
+    <section className="relative min-h-screen overflow-hidden px-6 pt-28 pb-16 flex items-center" style={{ background: "linear-gradient(160deg, #ffffff 0%, #fff5f5 50%, #fffbf0 100%)" }}>
       <Particles />
       <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.8) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
 
-      <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-12 lg:flex-row lg:items-center">
+      <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-12 lg:flex-row lg:items-center w-full">
         <motion.div variants={stagger} initial="hidden" animate="visible" className="flex-1">
-          <motion.div variants={fadeUp} custom={0} className="mb-6 inline-flex items-center gap-2.5 rounded-full px-4 py-2" style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(12px)", border: "1px solid rgba(220,38,38,0.2)", boxShadow: "0 4px 20px rgba(220,38,38,0.08)" }}>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-            </span>
-            <span className="text-sm font-medium tracking-wide text-red-600">Live: Emergency Blood Network Active</span>
-          </motion.div>
-
-          <motion.h1 variants={fadeUp} custom={1} className="mb-6 text-5xl font-black leading-none tracking-tight text-gray-900 md:text-6xl lg:text-7xl" style={{ fontFamily: "var(--font-heading)" }}>
+          <motion.h1 variants={fadeUp} custom={0} className="mb-6 text-5xl font-black leading-none tracking-tight text-gray-900 md:text-6xl lg:text-7xl" style={{ fontFamily: "var(--font-heading)" }}>
             DONATE<br />
             <span style={{ background: "linear-gradient(135deg, #d4a017 0%, #dc2626 55%, #d4a017 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
               YOUR BLOOD
             </span>
           </motion.h1>
 
-          <motion.p variants={fadeUp} custom={2} className="mb-10 max-w-md text-lg leading-relaxed text-slate-500">
+          <motion.p variants={fadeUp} custom={1} className="mb-10 max-w-md text-lg leading-relaxed text-slate-500">
             Connect with donors, track supply, and save lives in real-time.
           </motion.p>
 
-          <motion.div variants={fadeUp} custom={3} className="flex flex-col gap-4 sm:flex-row">
+          <motion.div variants={fadeUp} custom={2} className="flex flex-col gap-4 sm:flex-row">
             <motion.button whileHover={{ scale: 1.04, boxShadow: "0 8px 30px rgba(220,38,38,0.35)" }} whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/role-selection")}
-              className="flex items-center gap-2.5 rounded-2xl bg-red-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-red-200 transition-colors hover:bg-red-500">
+              className="flex items-center justify-center gap-2.5 rounded-2xl bg-red-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-red-200 transition-colors hover:bg-red-500">
               <Droplets size={18} /> Donate Blood
             </motion.button>
             <motion.button whileHover={{ scale: 1.04, boxShadow: "0 8px 30px rgba(212,160,23,0.25)" }} whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/role-selection")}
-              className="flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 px-8 py-4 text-base font-semibold text-amber-600 transition-colors hover:bg-amber-50"
+              className="flex items-center justify-center gap-2.5 rounded-2xl border-2 border-amber-400 px-8 py-4 text-base font-semibold text-amber-600 transition-colors hover:bg-amber-50"
               style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)" }}>
               <Heart size={18} /> Join Now
             </motion.button>
@@ -99,8 +183,13 @@ function Hero() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="flex-1 w-full">
-          <div className="w-full overflow-hidden rounded-[2.5rem] shadow-2xl" style={{ aspectRatio: "4/3", border: "1.5px solid rgba(220,38,38,0.12)" }}>
-            <img src="/blood.png" alt="Donate Your Blood" className="h-full w-full object-cover" />
+          {/* Glow ring behind the box */}
+          <div className="relative">
+            <div className="absolute -inset-3 rounded-[2.5rem] opacity-60 blur-2xl pointer-events-none"
+              style={{ background: "linear-gradient(135deg, rgba(220,38,38,0.35) 0%, rgba(212,160,23,0.25) 100%)" }} />
+            <div className="absolute -inset-1 rounded-[2rem] opacity-40 pointer-events-none"
+              style={{ boxShadow: "0 0 40px 8px rgba(220,38,38,0.2), 0 0 80px 16px rgba(212,160,23,0.1)" }} />
+            <HeroSlider />
           </div>
         </motion.div>
       </div>
@@ -125,25 +214,67 @@ function StatItem({ value, suffix = "", label, delay }) {
 }
 
 function StatsBar() {
+  const [donorCount, setDonorCount] = useState(0);
+  const [livesSavedCount, setLivesSavedCount] = useState(0);
+
+  useEffect(() => {
+    // 1. Real-time subscription to active donors / users
+    const usersQuery = query(collection(db, "users"));
+    const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
+      const activeDonors = snapshot.docs.filter((docSnap) => {
+        const data = docSnap.data();
+        const role = String(data.role || "").toLowerCase();
+        const name = String(data.displayName || data.name || "").toLowerCase();
+        const email = String(data.email || "").toLowerCase();
+        if (data.isAdmin || role.includes("admin") || email.includes("admin") || name.includes("admin")) return false;
+        return true;
+      });
+      setDonorCount(activeDonors.length);
+    }, (error) => {
+      console.error("Error listening to active donors:", error);
+    });
+
+    // 2. Real-time subscription to completed blood requests (Lives Saved)
+    const requestsQuery = query(collection(db, "requests"), where("status", "==", "completed"));
+    const unsubRequests = onSnapshot(requestsQuery, (snapshot) => {
+      setLivesSavedCount(snapshot.size);
+    }, (error) => {
+      console.error("Error listening to completed requests:", error);
+    });
+
+    return () => {
+      unsubUsers();
+      unsubRequests();
+    };
+  }, []);
+
   const stats = [
-    { value: 500, suffix: "+", label: "Active Donors" },
-    { value: 1200, suffix: "+", label: "Lives Saved" },
-    { value: 12, suffix: "", label: "Cities Covered" },
-    { value: 5, suffix: " Min", label: "Avg Response" },
+    { value: donorCount, suffix: donorCount > 0 ? "+" : "", label: "Active Donors" },
+    { value: livesSavedCount, suffix: livesSavedCount > 0 ? "+" : "", label: "Lives Saved" },
   ];
+
   return (
-    <section className="py-14" style={{ background: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(148,163,184,0.15)", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
-      <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }}
-        className="mx-auto grid max-w-5xl grid-cols-2 gap-10 px-6 md:grid-cols-4">
-        {stats.map((s, i) => <StatItem key={s.label} {...s} delay={i} />)}
-      </motion.div>
+    <section className="py-12" style={{ background: "rgba(255,255,255,0.9)", borderTop: "1px solid rgba(148,163,184,0.15)", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
+      <div className="mx-auto flex flex-col items-center max-w-4xl px-6">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200/80 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+          Live Real-Time Data
+        </div>
+        <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }}
+          className="flex justify-center gap-16 sm:gap-24 w-full">
+          {stats.map((s, i) => <StatItem key={s.label} {...s} delay={i} />)}
+        </motion.div>
+      </div>
     </section>
   );
 }
 
 function HowItWorks() {
   const steps = [
-    { num: "01", title: "Register & Verify", desc: "Create your profile, verify your identity, and set your blood group. Takes less than 2 minutes." },
+    { num: "01", title: "Register & Verify", desc: "Create your profile, verify your identity, and set your blood group." },
     { num: "02", title: "Request or Offer Blood", desc: "Post an emergency request or browse real-time donor availability near you." },
     { num: "03", title: "Connect & Save a Life", desc: "Get instantly matched and coordinated with verified donors or recipients." },
   ];
@@ -173,14 +304,20 @@ function HowItWorks() {
 }
 
 function FeatureCard({ icon: Icon, iconColor, title, desc, delay }) {
+  const isSmartMatching = title === "Smart Matching";
+
   return (
     <motion.div variants={fadeUp} custom={delay}
       whileHover={{ y: -4, boxShadow: "0 20px 40px rgba(212,160,23,0.15)" }}
       className="rounded-3xl p-8 transition-all duration-300"
       style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(16px)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
-      <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: `${iconColor}15`, border: `1px solid ${iconColor}30` }}>
+      <motion.div
+        className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl"
+        animate={isSmartMatching ? { rotate: 360 } : {}}
+        transition={isSmartMatching ? { duration: 3, repeat: Infinity, ease: "linear" } : {}}
+        style={{ background: `${iconColor}15`, border: `1px solid ${iconColor}30` }}>
         <Icon size={22} style={{ color: iconColor }} />
-      </div>
+      </motion.div>
       <h3 className="mb-2 text-lg font-semibold text-gray-900">{title}</h3>
       <p className="text-sm leading-relaxed text-slate-500">{desc}</p>
     </motion.div>
@@ -189,8 +326,14 @@ function FeatureCard({ icon: Icon, iconColor, title, desc, delay }) {
 
 function Features() {
   const cards = [
+<<<<<<< HEAD
+    { icon: Zap, iconColor: "#d4a017", title: "Smart Matching", desc: "We match blood types, location, and urgency in milliseconds for the fastest possible connection." },
+    { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Full transparency from request to delivery." },
+    { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is verified and health-screened. You can trust who shows up." },
+=======
     { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Watch your donor or recipient move on a live map. Full transparency from request to delivery." },
     { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is ID-verified and health-screened. You can trust who shows up." },
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
     { icon: Bell, iconColor: "#dc2626", title: "Emergency Alerts", desc: "Instant push alerts to nearby donors the moment a critical request is posted." },
   ];
   return (
@@ -208,7 +351,34 @@ function Features() {
   );
 }
 
+<<<<<<< HEAD
+// All 19 Blood Groups Definition
+const bloodInfo = {
+  "O-": { label: "Universal Donor", category: "Standard", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
+  "O+": { label: "Most Common Type", category: "Standard", canGiveTo: ["O+", "A+", "B+", "AB+"], canReceiveFrom: ["O-", "O+"] },
+  "A-": { label: "Rare Type", category: "Standard", canGiveTo: ["A-", "A+", "AB-", "AB+"], canReceiveFrom: ["O-", "A-"] },
+  "A+": { label: "High Demand Type", category: "Standard", canGiveTo: ["A+", "AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+"] },
+  "B-": { label: "Rare Type", category: "Standard", canGiveTo: ["B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-", "B-"] },
+  "B+": { label: "High Demand Type", category: "Standard", canGiveTo: ["B+", "AB+"], canReceiveFrom: ["O-", "O+", "B-", "B+"] },
+  "AB-": { label: "Rare Type", category: "Standard", canGiveTo: ["AB-", "AB+"], canReceiveFrom: ["O-", "A-", "B-", "AB-"] },
+  "AB+": { label: "Universal Recipient", category: "Standard", canGiveTo: ["AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
+
+  "A1+": { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A+", "A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "O+", "O-"] },
+  "A1-": { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A+", "A-", "A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "O-"] },
+  "A2+": { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A2+", "A+", "A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "O+", "O-"] },
+  "A2-": { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A2+", "A2-", "A+", "A-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "O-"] },
+  "A1B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "B+", "B-", "O+", "O-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"] },
+  "A1B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "B-", "O-", "A1B-", "A2B-", "AB-"] },
+  "A2B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "B+", "B-", "O+", "O-", "A2B+", "A2B-"] },
+  "A2B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "B-", "O-", "A2B-"] },
+
+  "Bombay Blood Group": { label: "Extremely Rare (hh Antigen)", category: "Rare Phenotypes", canGiveTo: ["Bombay", "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["Bombay Blood Group"] },
+  "INRA": { label: "Ultra-Rare Indian Phenotype", category: "Rare Phenotypes", canGiveTo: ["INRA", "Compatible Rare Donors"], canReceiveFrom: ["INRA"] },
+  "Rh-null": { label: "Golden Blood (Universal Rh)", category: "Rare Phenotypes", canGiveTo: ["Rh-null", "All Rh Negative / Positive Types"], canReceiveFrom: ["Rh-null"] }
+};
+=======
 const bloodInfo = BLOOD_COMPATIBILITY_INFO;
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
 
 function BloodFinder() {
   const [selected, setSelected] = useState("O-");
@@ -232,6 +402,9 @@ function BloodFinder() {
     <section className="py-24 px-4 sm:px-6" style={{ background: "linear-gradient(180deg, #fff5f5 0%, #ffffff 100%)" }}>
       <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} className="mx-auto max-w-4xl text-center">
         <motion.div variants={fadeUp} className="mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full bg-red-100/80 px-4 py-1.5 text-xs font-bold text-red-600 mb-4">
+            <Sparkles size={14} /> Medical Compatibility Matrix
+          </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Blood Type Compatibility</h2>
           <p className="mt-4 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
             Select your blood group to see who you can give to and receive from. Supports all 19 standard blood types, subgroups, and rare phenotypes.
@@ -246,11 +419,10 @@ function BloodFinder() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
-                  isActive
-                    ? "bg-slate-900 text-white shadow-md"
+                className={`rounded-full px-4 py-1.5 text-xs sm:text-sm font-bold transition-all duration-200 ${isActive
+                    ? "bg-slate-900 text-white shadow-md scale-105"
                     : "bg-white/80 text-slate-600 hover:bg-red-50 border border-slate-200/80"
-                }`}
+                  }`}
               >
                 {cat.label}
               </button>
@@ -265,7 +437,7 @@ function BloodFinder() {
             return (
               <motion.button key={g} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
                 onClick={() => setSelected(isSelected ? null : g)}
-                className="rounded-2xl px-3.5 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition-all duration-200"
+                className="rounded-2xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition-all duration-200"
                 style={isSelected ? {
                   background: "linear-gradient(135deg, #dc2626, #d4a017)",
                   color: "#fff",
@@ -287,7 +459,7 @@ function BloodFinder() {
         {/* Selected Blood Group Details Card */}
         <motion.div animate={{ opacity: info ? 1 : 0, y: info ? 0 : 12 }} transition={{ duration: 0.35 }} className="mt-8">
           {info && (
-            <div className="rounded-3xl p-5 sm:p-7 text-left" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(220,38,38,0.15)", boxShadow: "0 12px 40px rgba(220,38,38,0.08)" }}>
+            <div className="rounded-3xl p-6 sm:p-8 text-left" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(220,38,38,0.15)", boxShadow: "0 12px 40px rgba(220,38,38,0.08)" }}>
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-red-100/80 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl shrink-0 shadow-md" style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)" }}>
@@ -349,21 +521,31 @@ function BloodFinder() {
 
 function Trust() {
   return (
-    <section className="py-20 px-6" style={{ background: "linear-gradient(180deg, #ffffff 0%, #fff5f5 100%)" }}>
-      <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} className="mx-auto max-w-3xl text-center">
-        <motion.p variants={fadeUp} className="mb-10 text-sm font-semibold tracking-[0.2em] text-slate-400 uppercase">Trusted & Backed By</motion.p>
-        <motion.div variants={fadeUp} custom={1} className="flex flex-col items-center justify-center gap-10 sm:flex-row sm:gap-16">
-          {[{ code: "PEC", label: "Panimalar Engineering College", color: "#dc2626" }, { code: "YRC", label: "Youth Red Cross", color: "#d4a017" }].map((org) => (
-            <div key={org.code} className="flex flex-col items-center gap-3">
-              <div className="flex h-20 w-20 items-center justify-center rounded-3xl text-3xl font-bold shadow-lg"
-                style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(12px)", border: "1.5px solid rgba(148,163,184,0.2)", color: org.color, boxShadow: "0 8px 32px rgba(0,0,0,0.07)" }}>
-                {org.code}
-              </div>
-              <span className="text-sm text-slate-500">{org.label}</span>
+    <section className="py-24 px-6" style={{ background: "linear-gradient(180deg, #ffffff 0%, #fff5f5 100%)" }}>
+      <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} className="mx-auto max-w-4xl text-center">
+        <motion.p variants={fadeUp} className="mb-12 text-base font-semibold tracking-[0.2em] text-slate-500 uppercase">Trusted & Backed By</motion.p>
+        <motion.div variants={fadeUp} custom={1} className="flex flex-col items-center justify-center gap-16 sm:flex-row sm:gap-20">
+          {[
+            {
+              code: "PEC",
+              label: "Panimalar Engineering College",
+              color: "#dc2626",
+              logo: pecLogo,
+            },
+            {
+              code: "YRC",
+              label: "Youth Red Cross",
+              color: "#d4a017",
+              logo: yrcLogo,
+            },
+          ].map((org) => (
+            <div key={org.code} className="flex flex-col items-center gap-4">
+              <img src={org.logo} alt={`${org.code} logo`} className="h-28 w-auto object-contain" style={{ mixBlendMode: "multiply" }} />
+              <span className="text-base font-medium text-slate-600">{org.label}</span>
             </div>
           ))}
         </motion.div>
-        <motion.p variants={fadeUp} custom={2} className="mt-10 text-sm italic text-slate-400">Official blood donation initiative of Panimalar Engineering College</motion.p>
+        <motion.p variants={fadeUp} custom={2} className="mt-12 text-base italic text-slate-500">Official blood donation initiative of Panimalar Engineering College</motion.p>
       </motion.div>
     </section>
   );
@@ -395,42 +577,22 @@ function CTABanner() {
   );
 }
 
-function LandingFooter() {
-  const navigate = useNavigate();
+function Footer() {
   return (
     <>
-      {/* Mini CTA Strip */}
-      <div className="px-6 py-10 text-center" style={{ background: "linear-gradient(90deg, #fff5f5 0%, #ffffff 50%, #fff5f5 100%)", borderTop: "1px solid rgba(220,38,38,0.08)" }}>
-        <p className="text-2xl font-bold text-gray-900 mb-3" style={{ fontFamily: "var(--font-heading)" }}>Ready to make a difference?</p>
-        <p className="text-slate-500 mb-6 text-sm">Join thousands of donors saving lives across India every day.</p>
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <motion.button onClick={() => navigate("/role-selection")} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-200 hover:bg-red-500 transition-colors">
-            <Droplets size={16} /> Donate Blood
-          </motion.button>
-          <motion.button onClick={() => navigate("/role-selection")} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            className="flex items-center gap-2 rounded-2xl border-2 border-amber-400 px-6 py-3 text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors">
-            <Heart size={16} /> Request Blood
-          </motion.button>
-        </div>
-      </div>
-
       {/* Main Footer */}
       <footer style={{ background: "#0f0505" }}>
-        <div className="mx-auto max-w-6xl px-6 py-14 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Brand */}
-          <div>
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red-600">
-                <Droplets size={17} className="text-white" />
-              </div>
-              <span className="text-xl font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>LifeLink</span>
+        <div className="mx-auto max-w-7xl px-10 py-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Brand - spans 2 cols */}
+          <div className="lg:col-span-2">
+            <div className="mb-4">
+              <img src={appLogo} alt="LifeLink" className="h-24 w-auto object-contain" />
             </div>
-            <p className="text-sm text-slate-400 leading-relaxed">Connecting blood donors and recipients in real time. Every second counts.</p>
+            <p className="text-sm text-slate-400 leading-relaxed">Connecting blood donors and recipients in real time.<br />Every second counts.</p>
             <div className="flex gap-3 mt-5">
               <a href="https://instagram.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-slate-400 hover:text-pink-400 transition-colors" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>ig</a>
               <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-slate-400 hover:text-blue-400 transition-colors" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>in</a>
-              <a href="mailto:lifelink@pec.edu.in" className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>@</a>
+              <a href="mailto:hello@lifelink.app" className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>@</a>
             </div>
           </div>
 
@@ -448,27 +610,27 @@ function LandingFooter() {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Contact</p>
             <ul className="space-y-2">
-              <li className="text-sm text-slate-400">📧 lifelink@pec.edu.in</li>
+              <li className="text-sm text-slate-400">📧 hello@lifelink.app</li>
               <li className="text-sm text-slate-400">📞 +91 98765 43210</li>
               <li className="text-sm text-slate-400">📍 Chennai, Tamil Nadu</li>
             </ul>
           </div>
 
-          {/* Emergency */}
+          {/* Quote */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Emergency</p>
-            <div className="rounded-2xl p-4" style={{ background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)" }}>
-              <p className="text-sm font-semibold text-red-400 mb-1">24/7 Helpline</p>
-              <p className="text-2xl font-bold text-white">1800-BLOOD</p>
-              <p className="text-xs text-slate-500 mt-1">Toll free · Always available</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Our Purpose</p>
+            <div className="rounded-2xl p-4" style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.15)" }}>
+              <p className="text-sm italic leading-relaxed text-slate-300">
+                "You don't need to be a doctor to save lives — just roll up your sleeve."
+              </p>
+              <p className="mt-3 text-xs font-bold text-amber-400">Every blood donor is a hero. </p>
             </div>
-            <p className="mt-4 text-xs text-slate-500 leading-relaxed">Official initiative of Panimalar Engineering College & Youth Red Cross.</p>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t px-6 py-5 flex flex-col items-center gap-1 text-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-          <p className="text-xs text-slate-600">© 2025 LifeLink. All rights reserved.</p>
+        <div className="border-t px-10 py-5 flex items-center justify-center text-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+          <p className="text-xs text-slate-600">© 2026 LifeLink. All rights reserved.</p>
         </div>
       </footer>
     </>
@@ -476,299 +638,178 @@ function LandingFooter() {
 }
 
 export default function LandingPage() {
-    const { currentUser, userRole } = useAuth();
-    const [showDemo, setShowDemo] = useState(false);
+  const { currentUser, userRole } = useAuth();
+  const [showDemo, setShowDemo] = useState(false);
 
-    useEffect(() => {
-        const hasViewedIntro = sessionStorage.getItem('hasViewedIntro');
-        if (!hasViewedIntro) {
-            setShowDemo(true);
-            sessionStorage.setItem('hasViewedIntro', 'true');
-        }
-    }, []);
+  useEffect(() => {
+    const hasViewedIntro = sessionStorage.getItem('hasViewedIntro');
+    if (!hasViewedIntro) {
+      setShowDemo(true);
+      sessionStorage.setItem('hasViewedIntro', 'true');
+    }
+  }, []);
 
-    // Admin Features State
-    const { broadcastRequest, completeRequest, acceptRequest, fulfillRequestByAdmin, updateUserProfile, verifyPickupCode } = useMCP();
-    const toast = useToast(); // Added toast
+  // Admin View check
+  if (userRole === 'admin') {
+    return <Navigate to="/admin-dashboard" replace />;
+  }
 
-    const [adminRequests, setAdminRequests] = useState([]);
-    const [incomingRequests, setIncomingRequests] = useState([]); // New state for patient requests
-    const [showRequestForm, setShowRequestForm] = useState(false);
-    const [requestData, setRequestData] = useState({ bloodGroup: 'A+', urgency: 'Emergency' });
-    const [activeTab, setActiveTab] = useState('responses'); // Default to responses
-    const navigate = useNavigate();
-
-    // Fetch Admin Requests (My Broadcasts)
-    const fetchAdminRequests = async () => {
-        try {
-            const q = query(
-                collection(db, "requests"),
-                where("patientId", "==", currentUser.uid)
-            );
-            const snapshot = await getDocs(q);
-            const reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            reqs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            setAdminRequests(reqs);
-        } catch (error) {
-            console.error("Error fetching admin requests:", error);
-        }
-    };
-
-    // Fetch Incoming Patient Requests
-    const fetchIncomingRequests = async () => {
-        try {
-            // Fetch pending requests not made by me
-            const q = query(
-                collection(db, "requests"),
-                where("status", "in", ["pending", "accepted", "ready_for_pickup"]) // Added ready_for_pickup
-            );
-            // Firestore limitation: != query. We filter client side for now or basic query
-            const snapshot = await getDocs(q);
-            let reqs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            // Filter out my own requests
-            reqs = reqs.filter(r => r.patientId !== currentUser.uid);
-
-            reqs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            setIncomingRequests(reqs);
-        } catch (error) {
-            console.error("Error fetching incoming requests:", error);
-        }
-    };
-
-    useEffect(() => {
-        if (currentUser && userRole === 'admin') {
-            if (activeTab === 'responses') fetchAdminRequests();
-            if (activeTab === 'incoming') fetchIncomingRequests();
-            // stock needs no fetch, it's in currentUser
-        }
-    }, [currentUser, userRole, activeTab]);
-
-    const handleAdminBroadcast = async (e) => {
-        e.preventDefault();
-        try {
-            await broadcastRequest({
-                ...requestData,
-                patientName: currentUser.displayName || "Blood Bank Center",
-                requesterType: 'admin',
-                location: null, // Don't hardcode coordinates
-                isCenterRequest: true,
-                centerId: currentUser.uid
-            });
-            toast.success("Emergency supply request broadcasted to network!");
-            setShowRequestForm(false);
-            fetchAdminRequests();
-        } catch (error) {
-            toast.error("Failed to broadcast: " + error.message);
-        }
-    };
-
-    const handleAdminAccept = async (req) => {
-
-
-        try {
-            console.log("Attempting to fulfill request:", req.id, req.bloodGroup);
-            await fulfillRequestByAdmin(req.id, req.bloodGroup);
-            toast.success("All set! The stock has been reserved and the patient has been notified with their Pickup Code.");
-            fetchIncomingRequests();
-        } catch (error) {
-            console.error("Fulfill failed:", error);
-            toast.error("Oops! Something went wrong: " + error);
-        }
-    };
-
-    const handleVerifyPickup = async (reqId, code) => {
-        try {
-            await verifyPickupCode(reqId, code);
-            toast.success("Perfect match! Identity verified. You can now safely hand over the blood unit.");
-            fetchIncomingRequests();
-        } catch (error) {
-            toast.error("Verification Mismatch: " + error);
-        }
-    };
-
-    const handleAddStock = async (bloodGroup) => {
-        try {
-            console.log(`Adding stock for ${bloodGroup}...`);
-            // Use nested object structure for setDoc with merge: true
-            await updateUserProfile({
-                bloodStock: {
-                    [bloodGroup]: increment(1)
-                }
-            });
-            console.log("Stock add signal sent.");
-            // Optional: toast.success(`Added 1 unit of ${bloodGroup}`); 
-        } catch (error) {
-            console.error("Stock update error:", error);
-            toast.error("Failed to update stock: " + error.message);
-        }
-    };
-
-
-
-    // ADMIN VIEW - Redirect admin directly to real Admin Dashboard
-    if (userRole === 'admin') {
-        return <Navigate to="/admin-dashboard" replace />;
-    } // End Admin View
-
-    return (
-        <div className="min-h-screen font-sans antialiased" style={{ background: "#ffffff" }}>
-            <LandingNavbar 
-                userName={currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : "User")} 
-                showUser={!!currentUser} 
-                activePath="/" 
-            />
-            <Hero />
-            <StatsBar />
-            <HowItWorks />
-            <Features />
-            <BloodFinder />
-            <Trust />
-            <CTABanner />
-            <LandingFooter />
-            <DemoModal isOpen={showDemo} onClose={() => setShowDemo(false)} />
-        </div>
-    );
+  return (
+    <div className="min-h-screen font-sans antialiased" style={{ background: "#ffffff" }}>
+      <LandingNavbar
+        userName={currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : "User")}
+        showUser={!!currentUser}
+        activePath="/"
+      />
+      <Hero />
+      <StatsBar />
+      <HowItWorks />
+      <Features />
+      <BloodFinder />
+      <Trust />
+      <CTABanner />
+      <Footer />
+      <DemoModal isOpen={showDemo} onClose={() => setShowDemo(false)} />
+    </div>
+  );
 }
 
-// Helper Component for Admin's Own Requests
+// Helper Component for Admin's Own Requests (Kept for compatibility)
 function AdminRequestCard({ req, navigate, completeRequest, fetchAdminRequests }) {
-    const toast = useToast();
-    const statusClasses = req.status === 'accepted' ? 'bg-green-100 text-green-700' :
-        req.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-        'bg-yellow-100 text-yellow-700';
+  const toast = useToast();
+  const statusClasses = req.status === 'accepted' ? 'bg-green-100 text-green-700' :
+    req.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+      'bg-yellow-100 text-yellow-700';
 
-    return (
-        <Card className="p-5 border-l-4 border-l-red-500 relative hover:shadow-lg transition-shadow">
-            <div className="flex justify-between items-start mb-3">
-                <div>
-                    <span className="text-xs font-bold text-red-600 uppercase tracking-wider bg-red-100 px-2 py-0.5 rounded-full">
-                        {req.urgency}
-                    </span>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">{req.bloodGroup}</h3>
-                </div>
-                <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${statusClasses}`}>
-                    {req.status}
-                </div>
+  return (
+    <Card className="p-5 border-l-4 border-l-red-500 relative hover:shadow-lg transition-shadow">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <span className="text-xs font-bold text-red-600 uppercase tracking-wider bg-red-100 px-2 py-0.5 rounded-full">
+            {req.urgency}
+          </span>
+          <h3 className="text-3xl font-bold text-gray-900 mt-2">{req.bloodGroup}</h3>
+        </div>
+        <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${statusClasses}`}>
+          {req.status}
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+        <Clock className="h-4 w-4" />
+        {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleString() : 'Just now'}
+      </p>
+
+      {['accepted', 'completed'].includes(req.status) ? (
+        <div className={`p-4 rounded-lg border ${req.status === 'completed' ? 'bg-blue-50 border-blue-100' : 'bg-green-50 border-green-100'}`}>
+          <p className={`text-xs font-semibold uppercase mb-1 ${req.status === 'completed' ? 'text-blue-800' : 'text-green-800'}`}>
+            {req.status === 'completed' ? 'Donation Completed By' : 'Accepted By'}
+          </p>
+          <p className="font-bold text-gray-900 text-lg">{req.donorName}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <Phone className={`h-4 w-4 ${req.status === 'completed' ? 'text-blue-600' : 'text-green-600'}`} />
+            <a href={`tel:${req.donorPhone}`} className={`text-sm font-medium hover:underline ${req.status === 'completed' ? 'text-blue-700' : 'text-green-700'}`}>
+              {req.donorPhone || "No Phone Shared"}
+            </a>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <Button
+              onClick={() => navigate(`/chat/${req.id}`)}
+              className={`flex-1 text-xs text-white ${req.status === 'completed' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              {req.status === 'completed' ? 'View Chat' : 'Message Donor'}
+            </Button>
+          </div>
+
+          {req.status === 'accepted' && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <Button
+                onClick={async () => {
+                  try {
+                    await completeRequest(req.id);
+                    toast.success("Stock Updated! Donation completed.");
+                    fetchAdminRequests();
+                  } catch (error) {
+                    toast.error("Failed to update stock: " + error.message);
+                  }
+                }}
+                className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
+              >
+                Mark Completed & Add to Stock
+              </Button>
+              <div className="mt-2 text-xs text-green-600 flex gap-1 justify-center items-center">
+                <CheckCircle className="h-3 w-3" />
+                Donor is on the way
+              </div>
             </div>
-
-            <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleString() : 'Just now'}
-            </p>
-
-            {['accepted', 'completed'].includes(req.status) ? (
-                <div className={`p-4 rounded-lg border ${req.status === 'completed' ? 'bg-blue-50 border-blue-100' : 'bg-green-50 border-green-100'}`}>
-                    <p className={`text-xs font-semibold uppercase mb-1 ${req.status === 'completed' ? 'text-blue-800' : 'text-green-800'}`}>
-                        {req.status === 'completed' ? 'Donation Completed By' : 'Accepted By'}
-                    </p>
-                    <p className="font-bold text-gray-900 text-lg">{req.donorName}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                        <Phone className={`h-4 w-4 ${req.status === 'completed' ? 'text-blue-600' : 'text-green-600'}`} />
-                        <a href={`tel:${req.donorPhone}`} className={`text-sm font-medium hover:underline ${req.status === 'completed' ? 'text-blue-700' : 'text-green-700'}`}>
-                            {req.donorPhone || "No Phone Shared"}
-                        </a>
-                    </div>
-
-                    <div className="flex gap-2 mt-4">
-                        <Button
-                            onClick={() => navigate(`/chat/${req.id}`)}
-                            className={`flex-1 text-xs text-white ${req.status === 'completed' ? 'bg-gray-500 hover:bg-gray-600' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                            {req.status === 'completed' ? 'View Chat' : 'Message Donor'}
-                        </Button>
-                    </div>
-
-                    {req.status === 'accepted' && (
-                        <div className="mt-3 pt-3 border-t border-green-200">
-                            <Button
-                                onClick={async () => {
-                                    try {
-                                        await completeRequest(req.id);
-                                        toast.success("Stock Updated! Donation completed.");
-                                        fetchAdminRequests();
-                                    } catch (error) {
-                                        toast.error("Failed to update stock: " + error.message);
-                                    }
-                                }}
-                                className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                Mark Completed & Add to Stock
-                            </Button>
-                            <div className="mt-2 text-xs text-green-600 flex gap-1 justify-center items-center">
-                                <CheckCircle className="h-3 w-3" />
-                                Donor is on the way
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <div className="bg-gray-900 p-4 rounded-lg border border-dashed border-gray-800 text-center">
-                    <div className="animate-pulse flex justify-center mb-2">
-                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5"></div>
-                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-200"></div>
-                        <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-400"></div>
-                    </div>
-                    <span className="text-sm text-gray-500">Waiting for donors to respond...</span>
-                </div>
-            )}
-        </Card>
-    );
+          )}
+        </div>
+      ) : (
+        <div className="bg-gray-900 p-4 rounded-lg border border-dashed border-gray-800 text-center">
+          <div className="animate-pulse flex justify-center mb-2">
+            <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5"></div>
+            <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-200"></div>
+            <div className="h-2 w-2 bg-gray-700 rounded-full mx-0.5 animation-delay-400"></div>
+          </div>
+          <span className="text-sm text-gray-500">Waiting for donors to respond...</span>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function IncomingPatientCard({ req, onAccept, onVerify }) {
-    const [code, setCode] = useState("");
+  const [code, setCode] = useState("");
 
-    return (
-        <Card className="p-5 border-l-4 border-l-blue-500 relative hover:shadow-lg transition-shadow">
-            <div className="flex justify-between items-start mb-3">
-                <div>
-                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${req.status === 'ready_for_pickup' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
-                        }`}>
-                        {req.status === 'ready_for_pickup' ? 'Awaiting Pickup' : 'Patient Request'}
-                    </span>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">{req.bloodGroup}</h3>
-                </div>
-                <div className="px-2 py-1 rounded text-xs font-bold uppercase bg-yellow-100 text-yellow-700">
-                    {req.urgency}
-                </div>
-            </div>
-            <p className="font-medium text-lg">{req.patientName}</p>
-            <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Unknown Location
-            </p>
+  return (
+    <Card className="p-5 border-l-4 border-l-blue-500 relative hover:shadow-lg transition-shadow">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${req.status === 'ready_for_pickup' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
+            }`}>
+            {req.status === 'ready_for_pickup' ? 'Awaiting Pickup' : 'Patient Request'}
+          </span>
+          <h3 className="text-3xl font-bold text-gray-900 mt-2">{req.bloodGroup}</h3>
+        </div>
+        <div className="px-2 py-1 rounded text-xs font-bold uppercase bg-yellow-100 text-yellow-700">
+          {req.urgency}
+        </div>
+      </div>
+      <p className="font-medium text-lg">{req.patientName}</p>
+      <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+        <MapPin className="h-4 w-4" />
+        Unknown Location
+      </p>
 
-            {req.status === 'ready_for_pickup' ? (
-                <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
-                    <p className="text-xs font-bold text-amber-800 mb-2">Verify Pickup Code</p>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            placeholder="6-digit Code"
-                            className="w-full px-2 py-1 text-sm border rounded"
-                            value={code} // State should be controlled? Yes.
-                            onChange={(e) => setCode(e.target.value)}
-                        />
-                        <Button
-                            size="sm"
-                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
-                            onClick={() => onVerify(req.id, code)}
-                        >
-                            Verify
-                        </Button>
-                    </div>
-                </div>
-            ) : (
-                <Button
-                    onClick={() => onAccept(req)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                    Fulfill / Supply Blood
-                </Button>
-            )}
-        </Card>
-    );
+      {req.status === 'ready_for_pickup' ? (
+        <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
+          <p className="text-xs font-bold text-amber-800 mb-2">Verify Pickup Code</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="6-digit Code"
+              className="w-full px-2 py-1 text-sm border rounded"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white text-xs"
+              onClick={() => onVerify(req.id, code)}
+            >
+              Verify
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          onClick={() => onAccept(req)}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          Fulfill / Supply Blood
+        </Button>
+      )}
+    </Card>
+  );
 }
-
-

@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { collection, query, getDocs, where } from "firebase/firestore";
+import { collection, query, getDocs, where, doc, deleteDoc } from "firebase/firestore";
 import { toast } from "react-hot-toast";
 import { calculateDonationEligibility, ALL_BLOOD_GROUPS } from "../lib/utils";
 import {
   Search, LogOut, RefreshCw, Users, Droplets, Heart, Activity,
   ChevronDown, X, MessageCircle, AlertTriangle, CheckCircle2, MapPin,
-  Phone, Mail, Calendar, Weight, User, Eye, UserCheck, ChevronRight
+  Phone, Mail, Calendar, Weight, User, Eye, UserCheck, ChevronRight, Trash2
 } from "lucide-react";
 import logo from "../assets/app logo.png";
 import pecLogo from "../assets/pec logo.png";
@@ -187,6 +187,51 @@ function UserDetailsModal({ user, onClose }) {
   );
 }
 
+function DeleteConfirmationModal({ user, onClose, onConfirm, deleting }) {
+  if (!user) return null;
+  const userName = user.displayName || user.name || "User";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-red-600 to-rose-700 px-6 py-4 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trash2 size={20} />
+            <h2 className="font-black text-lg">Confirm Deletion</h2>
+          </div>
+          <button onClick={onClose} disabled={deleting} className="rounded-xl p-1.5 hover:bg-white/20 transition cursor-pointer"><X size={18} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-slate-600">
+            Are you sure you want to permanently delete <strong className="text-slate-900">{userName}</strong> ({user.email || user.role || "User"}) from the database?
+          </p>
+          <div className="rounded-2xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-700 font-medium">
+            ⚠️ This will permanently remove their profile document from Firestore. This action cannot be undone.
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} disabled={deleting}
+              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={onConfirm} disabled={deleting}
+              className="flex-1 rounded-2xl bg-red-600 py-3 text-sm font-bold text-white hover:bg-red-700 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-red-600/30">
+              {deleting ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" /> Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={14} /> Delete User
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 
 
 function TransactionModal({ txn, onClose }) {
@@ -264,6 +309,8 @@ export default function AdminDashboard() {
   // Modals
   const [userModal, setUserModal] = useState(null);
   const [txnModal, setTxnModal] = useState(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   useEffect(() => {
     fetchAllData();
@@ -334,6 +381,34 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
       setSyncing(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteConfirmUser) return;
+    const targetId = deleteConfirmUser.id;
+    const userName = deleteConfirmUser.displayName || deleteConfirmUser.name || "User";
+    setDeletingUser(true);
+    try {
+      // 1. Delete main user document from Firestore
+      await deleteDoc(doc(db, "users", targetId));
+
+      // 2. Delete shadow donor document if present
+      try {
+        await deleteDoc(doc(db, "donars", targetId));
+      } catch (e) {
+        // Ignore if shadow donar document does not exist
+      }
+
+      // 3. Update local state
+      setUsers(prev => prev.filter(u => u.id !== targetId));
+      toast.success(`${userName} deleted from database.`);
+      setDeleteConfirmUser(null);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("Failed to delete user from database.");
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -625,6 +700,7 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3 font-bold">Status</th>
                       <th className="px-4 py-3 font-bold">Mobile No.</th>
                       <th className="px-4 py-3 font-bold text-center">Last Donated & Eligibility</th>
+                      <th className="px-4 py-3 font-bold text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -669,6 +745,13 @@ export default function AdminDashboard() {
                                 <p className="text-[11px] font-bold text-emerald-600">Ready to donate</p>
                               </div>
                             )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => setDeleteConfirmUser(u)}
+                              className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition cursor-pointer"
+                              title="Delete User from Database">
+                              <Trash2 size={13} /> Delete
+                            </button>
                           </td>
                         </tr>
                       );
@@ -810,6 +893,14 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {userModal && <UserDetailsModal user={userModal} onClose={() => setUserModal(null)} />}
         {txnModal && <TransactionModal txn={txnModal} onClose={() => setTxnModal(null)} />}
+        {deleteConfirmUser && (
+          <DeleteConfirmationModal
+            user={deleteConfirmUser}
+            onClose={() => setDeleteConfirmUser(null)}
+            onConfirm={handleDeleteUser}
+            deleting={deletingUser}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
