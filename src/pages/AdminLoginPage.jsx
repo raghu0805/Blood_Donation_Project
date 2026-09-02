@@ -1,171 +1,190 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/Button';
-import { Shield, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import LoadingOverlay from '../components/LoadingOverlay';
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] } }),
+};
+
 export default function AdminLoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { currentUser, loginWithEmail, assignRole, signupWithEmail, setIsRoleSwitching, logout } = useAuth();
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+  const { currentUser, loginWithEmail, assignRole, signupWithEmail, setIsRoleSwitching, logout } = useAuth();
 
-        const trimmedEmail = email.trim();
-        const trimmedPassword = password.trim();
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-        if (trimmedPassword.length < 6) {
-            setError('Password must be at least 6 characters long.');
-            setLoading(false);
-            return;
-        }
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
+    if (trimmedPassword.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setIsRoleSwitching(true);
+
+      // Force sign out existing session first if needed
+      if (currentUser) {
+        await logout();
+      }
+
+      let userCred;
+      try {
+        userCred = await loginWithEmail(trimmedEmail, trimmedPassword);
+      } catch (loginErr) {
+        // If admin account doesn't exist yet, attempt auto-creation
+        console.log("Login failed, attempting auto-creation...", loginErr);
         try {
-            setIsRoleSwitching(true);
-
-            // Force sign out existing session first if needed
-            if (currentUser) {
-                await logout();
-            }
-
-            let userCred;
-            try {
-                userCred = await loginWithEmail(trimmedEmail, trimmedPassword);
-            } catch (loginErr) {
-                // If admin account doesn't exist yet, attempt auto-creation
-                console.log("Login failed, attempting auto-creation...", loginErr);
-                try {
-                    userCred = await signupWithEmail(trimmedEmail, trimmedPassword, { 
-                        role: 'admin', 
-                        displayName: 'System Admin',
-                        whatsappNumber: '1234567890' 
-                    });
-                } catch (signupErr) {
-                    if (signupErr.code === 'auth/email-already-in-use') {
-                        throw new Error('Incorrect password for this admin email. Please check your credentials.');
-                    }
-                    throw signupErr;
-                }
-            }
-
-            const authenticatedUid = userCred?.user?.uid || auth.currentUser?.uid;
-            if (authenticatedUid) {
-                // Explicitly set admin user document in Firestore to prevent race conditions
-                await setDoc(doc(db, "users", authenticatedUid), {
-                    email: trimmedEmail,
-                    role: 'admin',
-                    displayName: 'System Admin',
-                    whatsappNumber: '1234567890',
-                    isAvailable: false
-                }, { merge: true });
-
-                await assignRole('admin', authenticatedUid);
-            }
-
-            navigate('/admin-dashboard', { replace: true });
-            setTimeout(() => {
-                setIsRoleSwitching(false);
-            }, 500);
-
-        } catch (err) {
-            setIsRoleSwitching(false);
-            console.error("Admin Login Error:", err);
-            setError(err.message || 'Failed to log in as admin. Please check your credentials.');
-        } finally {
-            setLoading(false);
+          userCred = await signupWithEmail(trimmedEmail, trimmedPassword, {
+            role: 'admin',
+            displayName: 'System Admin',
+            whatsappNumber: '1234567890'
+          });
+        } catch (signupErr) {
+          if (signupErr.code === 'auth/email-already-in-use') {
+            throw new Error('Incorrect password for this admin email. Please check your credentials.');
+          }
+          throw signupErr;
         }
-    };
+      }
 
-    return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-            <LoadingOverlay isLoading={loading} message="Authenticating..." subMessage="Verifying admin credentials" />
-            <div className="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700">
-                <div className="p-8">
-                    <div className="flex justify-center mb-6">
-                        <div className="p-3 bg-red-600 rounded-full">
-                            <Shield className="h-8 w-8 text-white" />
-                        </div>
-                    </div>
-                    <h2 className="text-2xl font-bold text-center text-white mb-2">Admin Portal</h2>
-                    <p className="text-gray-400 text-center mb-6">LifeLink Blood Bank Management</p>
+      const authenticatedUid = userCred?.user?.uid || auth.currentUser?.uid;
+      if (authenticatedUid) {
+        // Explicitly set admin user document in Firestore to prevent race conditions
+        await setDoc(doc(db, "users", authenticatedUid), {
+          email: trimmedEmail,
+          role: 'admin',
+          displayName: 'System Admin',
+          whatsappNumber: '1234567890',
+          isAvailable: false
+        }, { merge: true });
 
-                    {/* Default Credentials Callout Box */}
-                    <div className="bg-gray-900/90 border border-red-900/50 p-4 rounded-xl mb-6 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Default Credentials</span>
-                            <button 
-                                type="button" 
-                                onClick={() => { setEmail('admin@lifelink.org'); setPassword('admin123'); }} 
-                                className="text-xs font-bold text-white bg-red-600 hover:bg-red-500 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                            >
-                                Auto-fill Defaults
-                            </button>
-                        </div>
-                        <div className="text-xs text-gray-300 space-y-1 font-mono">
-                            <p><span className="text-gray-500">Email:</span> admin@lifelink.org</p>
-                            <p><span className="text-gray-500">Password:</span> admin123</p>
-                        </div>
-                    </div>
+        await assignRole('admin', authenticatedUid);
+      }
 
-                    {error && (
-                        <div className="bg-red-900/50 border border-red-500 text-red-200 p-3 rounded-lg mb-6 text-sm">
-                            {error}
-                        </div>
-                    )}
+      navigate('/admin-dashboard', { replace: true });
+      setTimeout(() => {
+        setIsRoleSwitching(false);
+      }, 500);
 
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase mb-1">Admin Email</label>
-                            <div className="relative">
-                                <Shield className="absolute left-3 top-3 h-5 w-5 text-gray-500" />
-                                <input
-                                    type="email"
-                                    required
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg py-2.5 pl-10 pr-4 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                                    placeholder="admin@lifelink.org"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                        </div>
+    } catch (err) {
+      setIsRoleSwitching(false);
+      console.error("Admin Login Error:", err);
+      setError(err.message || 'Failed to log in as admin. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase mb-1">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-500" />
-                                <input
-                                    type="password"
-                                    required
-                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg py-2.5 pl-10 pr-4 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                        </div>
+  return (
+    <div className="min-h-screen font-sans antialiased flex items-center justify-center px-6 relative overflow-hidden"
+      style={{ background: "linear-gradient(160deg, #0f0505 0%, #1a0808 50%, #0f0a00 100%)" }}>
 
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-red-600 hover:bg-red-700 text-white py-3 font-semibold shadow-lg shadow-red-900/20"
-                        >
-                            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : "Access Dashboard"}
-                        </Button>
-                    </form>
-                </div>
-                <div className="bg-gray-900/50 p-4 text-center border-t border-gray-700">
-                    <p className="text-xs text-gray-500">Restricted Access. Authorized Personnel Only.</p>
-                </div>
+      <LoadingOverlay isLoading={loading} message="Authenticating..." subMessage="Verifying admin credentials" />
+
+      {/* Background blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, rgba(220,38,38,0.5) 0%, transparent 70%)", filter: "blur(60px)" }} />
+        <div className="absolute -bottom-20 -right-20 h-80 w-80 rounded-full opacity-15"
+          style={{ background: "radial-gradient(circle, rgba(212,160,23,0.5) 0%, transparent 70%)", filter: "blur(60px)" }} />
+      </div>
+
+      <motion.div initial="hidden" animate="visible" className="relative z-10 w-full max-w-sm">
+
+        {/* Logo */}
+        <motion.div variants={fadeUp} custom={0} className="mb-8 flex flex-col items-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl shadow-xl"
+            style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 8px 32px rgba(220,38,38,0.4)" }}>
+            <ShieldCheck size={28} className="text-white" />
+          </div>
+          <h1 className="text-3xl font-black text-white">Admin Portal</h1>
+          <p className="mt-1 text-sm text-slate-400">LifeLink Control Center</p>
+        </motion.div>
+
+        {/* Card */}
+        <motion.div variants={fadeUp} custom={1} className="rounded-3xl p-8"
+          style={{ background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}>
+
+          {/* Quick Auto-fill button */}
+          <div className="mb-5 flex items-center justify-between rounded-2xl px-3.5 py-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <span className="text-[11px] font-semibold text-slate-400">Default Admin Account</span>
+            <button
+              type="button"
+              onClick={() => { setEmail('admin@lifelink.org'); setPassword('admin123'); }}
+              className="text-[11px] font-bold text-amber-300 hover:text-white transition-colors cursor-pointer"
+            >
+              Auto-fill
+            </button>
+          </div>
+
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-400">Admin Email</label>
+              <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all focus-within:border-red-500"
+                style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}>
+                <Mail size={15} className="text-slate-500 shrink-0" />
+                <input value={email} onChange={e => setEmail(e.target.value)}
+                  type="email" placeholder="admin@lifelink.org" required
+                  className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" />
+              </div>
             </div>
-        </div>
-    );
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-400">Password</label>
+              <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all focus-within:border-red-500"
+                style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}>
+                <Lock size={15} className="text-slate-500 shrink-0" />
+                <input value={password} onChange={e => setPassword(e.target.value)}
+                  type={showPass ? "text" : "password"} placeholder="••••••••" required
+                  className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" />
+                <button type="button" onClick={() => setShowPass(!showPass)} className="text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl px-4 py-2.5 text-xs font-semibold text-red-400"
+                style={{ background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)" }}>
+                {error}
+              </motion.p>
+            )}
+
+            <motion.button type="submit"
+              whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(220,38,38,0.4)" }}
+              whileTap={{ scale: 0.97 }}
+              disabled={loading}
+              className="mt-2 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white cursor-pointer"
+              style={{ background: "linear-gradient(135deg, #dc2626, #d4a017)", boxShadow: "0 4px 20px rgba(220,38,38,0.3)" }}>
+              {loading
+                ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="h-4 w-4 rounded-full border-2 border-white border-t-transparent" />
+                : <><ShieldCheck size={15} /> Access Dashboard</>}
+            </motion.button>
+          </form>
+        </motion.div>
+
+        <motion.p variants={fadeUp} custom={2} className="mt-6 text-center text-xs text-slate-600">
+          Restricted access · LifeLink Admin v1.0
+        </motion.p>
+      </motion.div>
+    </div>
+  );
 }
