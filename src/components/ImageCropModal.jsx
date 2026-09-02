@@ -1,276 +1,355 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, ZoomOut, RotateCcw, Check, Move, Grid } from 'lucide-react';
-import { Button } from './Button';
-
-const ALIGNMENT_GRID = [
-    { id: 'top-left', label: 'Top Left', x: 0, y: 0 },
-    { id: 'top-center', label: 'Top Center', x: 0.5, y: 0 },
-    { id: 'top-right', label: 'Top Right', x: 1, y: 0 },
-    { id: 'center-left', label: 'Center Left', x: 0, y: 0.5 },
-    { id: 'center', label: 'Center', x: 0.5, y: 0.5 },
-    { id: 'center-right', label: 'Center Right', x: 1, y: 0.5 },
-    { id: 'bottom-left', label: 'Bottom Left', x: 0, y: 1 },
-    { id: 'bottom-center', label: 'Bottom Center', x: 0.5, y: 1 },
-    { id: 'bottom-right', label: 'Bottom Right', x: 1, y: 1 },
-];
+import { X, ZoomIn, ZoomOut, RotateCw, Check, RotateCcw, Move } from 'lucide-react';
 
 export default function ImageCropModal({ isOpen, imageSrc, onClose, onSave }) {
-    const [zoom, setZoom] = useState(1);
-    const [selectedPosition, setSelectedPosition] = useState('center');
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const [previewUrl, setPreviewUrl] = useState('');
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-    const canvasRef = useRef(null);
-    const imageRef = useRef(null);
-    const [imgLoaded, setImgLoaded] = useState(false);
+  const containerRef = useRef(null);
+  const imageRef = useRef(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const touchDistRef = useRef(null);
 
-    // Reset crop state on open/imageSrc change
-    useEffect(() => {
-        if (isOpen && imageSrc) {
-            setZoom(1);
-            setSelectedPosition('center');
-            setDragOffset({ x: 0, y: 0 });
-            setImgLoaded(false);
-            
-            const img = new Image();
-            img.src = imageSrc;
-            img.onload = () => {
-                imageRef.current = img;
-                setImgLoaded(true);
-            };
-        }
-    }, [isOpen, imageSrc]);
+  // Reset state when modal opens or imageSrc changes
+  useEffect(() => {
+    if (isOpen && imageSrc) {
+      setZoom(1);
+      setRotation(0);
+      setPosition({ x: 0, y: 0 });
+      setImgLoaded(false);
 
-    // Crop rendering function
-    const renderCrop = useCallback(() => {
-        if (!imageRef.current || !canvasRef.current) return;
-        const img = imageRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = imageSrc;
+      img.onload = () => {
+        imageRef.current = img;
+        setImgLoaded(true);
+      };
+    }
+  }, [isOpen, imageSrc]);
 
-        const OUTPUT_SIZE = 300;
-        canvas.width = OUTPUT_SIZE;
-        canvas.height = OUTPUT_SIZE;
+  // Rotate 90 degrees clockwise
+  const handleRotate = () => {
+    setRotation(prev => (prev + 90) % 360);
+    setPosition({ x: 0, y: 0 }); // reset pan position on rotate for clean fit
+  };
 
-        const imgWidth = img.width;
-        const imgHeight = img.height;
+  const handleReset = () => {
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+  };
 
-        // Base side length of crop square (taking min dimension)
-        const baseCropSize = Math.min(imgWidth, imgHeight);
-        const actualCropSize = Math.max(50, baseCropSize / zoom);
+  // Drag Handlers
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
 
-        // Find position preset coords (0 to 1)
-        const posObj = ALIGNMENT_GRID.find(p => p.id === selectedPosition) || ALIGNMENT_GRID[4];
-        
-        // Calculate crop top-left before drag
-        const maxStartX = imgWidth - actualCropSize;
-        const maxStartY = imgHeight - actualCropSize;
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  }, [isDragging, dragStart]);
 
-        let startX = maxStartX * posObj.x + dragOffset.x;
-        let startY = maxStartY * posObj.y + dragOffset.y;
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
 
-        // Clamp crop box within image boundaries
-        startX = Math.max(0, Math.min(maxStartX, startX));
-        startY = Math.max(0, Math.min(maxStartY, startY));
+  // Touch Handlers
+  const getTouchDist = (e) => {
+    if (e.touches.length < 2) return null;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
 
-        ctx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-        ctx.drawImage(
-            img,
-            startX, startY, actualCropSize, actualCropSize,
-            0, 0, OUTPUT_SIZE, OUTPUT_SIZE
-        );
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - position.x,
+        y: e.touches[0].clientY - position.y
+      });
+    } else if (e.touches.length === 2) {
+      touchDistRef.current = getTouchDist(e);
+    }
+  };
 
-        setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85));
-    }, [zoom, selectedPosition, dragOffset]);
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length === 1 && isDragging) {
+      setPosition({
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y
+      });
+    } else if (e.touches.length === 2 && touchDistRef.current) {
+      const dist = getTouchDist(e);
+      if (dist) {
+        const ratio = dist / touchDistRef.current;
+        setZoom(prev => Math.max(1, Math.min(3, parseFloat((prev * ratio).toFixed(2)))));
+        touchDistRef.current = dist;
+      }
+    }
+  }, [isDragging, dragStart]);
 
-    useEffect(() => {
-        if (imgLoaded) {
-            renderCrop();
-        }
-    }, [imgLoaded, renderCrop]);
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    touchDistRef.current = null;
+  };
 
-    // Drag handlers
-    const handleMouseDown = (e) => {
-        setIsDragging(true);
-        setDragStart({ x: e.clientX, y: e.clientY });
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e) => handleMouseMove(e);
+    const onUp = () => handleMouseUp();
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
     };
+  }, [isDragging, handleMouseMove]);
 
-    const handleMouseMove = (e) => {
-        if (!isDragging || !imageRef.current) return;
-        const dx = e.clientX - dragStart.x;
-        const dy = e.clientY - dragStart.y;
-        
-        // Scale drag sensitivity according to image size
-        const img = imageRef.current;
-        const scaleFactor = Math.min(img.width, img.height) / 250;
+  // Mouse wheel zoom
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    setZoom(prev => Math.max(1, Math.min(3, parseFloat((prev + delta).toFixed(2)))));
+  };
 
-        setDragOffset(prev => ({
-            x: prev.x - dx * scaleFactor,
-            y: prev.y - dy * scaleFactor
-        }));
-        setDragStart({ x: e.clientX, y: e.clientY });
-    };
+  // Generate cropped image base64
+  const handleCropSave = () => {
+    if (!imageRef.current) return;
+    const img = imageRef.current;
 
-    const handleMouseUp = () => {
-        setIsDragging(false);
-    };
+    const canvas = document.createElement('canvas');
+    const CROP_SIZE = 512; // Output high-res profile size
+    canvas.width = CROP_SIZE;
+    canvas.height = CROP_SIZE;
+    const ctx = canvas.getContext('2d');
 
-    const handleReset = () => {
-        setZoom(1);
-        setSelectedPosition('center');
-        setDragOffset({ x: 0, y: 0 });
-    };
+    // Get mask container dimensions (assumed square)
+    const maskSize = 280; // size of the circle crop view in px
 
-    const handleSave = () => {
-        if (previewUrl) {
-            onSave(previewUrl);
-            onClose();
-        }
-    };
+    ctx.save();
 
-    if (!isOpen || !imageSrc) return null;
+    // Clip canvas to a circular path
+    ctx.beginPath();
+    ctx.arc(CROP_SIZE / 2, CROP_SIZE / 2, CROP_SIZE / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
 
-    return (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 15 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-red-100 relative overflow-hidden"
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-                    <div>
-                        <h3 className="text-xl font-black text-slate-900">Select Profile Image Area</h3>
-                        <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                            Use the position table or drag & zoom to choose what to display.
-                        </p>
-                    </div>
-                    <button 
-                        onClick={onClose}
-                        className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
+    // Center output canvas
+    ctx.translate(CROP_SIZE / 2, CROP_SIZE / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.scale(zoom, zoom);
 
-                {/* Main Content Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                    {/* Interactive Canvas Preview & Drag Area */}
-                    <div className="flex flex-col items-center gap-3">
-                        <div 
-                            onMouseDown={handleMouseDown}
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={handleMouseUp}
-                            onMouseLeave={handleMouseUp}
-                            className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden border-2 border-red-500/30 shadow-lg group cursor-grab active:cursor-grabbing bg-slate-100 flex items-center justify-center"
-                        >
-                            {previewUrl ? (
-                                <img 
-                                    src={previewUrl} 
-                                    alt="Crop Preview" 
-                                    className="w-full h-full object-cover pointer-events-none select-none"
-                                />
-                            ) : (
-                                <div className="animate-spin h-6 w-6 border-2 border-red-600 border-t-transparent rounded-full" />
-                            )}
-                            
-                            {/* Overlay Grid Guide */}
-                            <div className="absolute inset-0 border border-white/40 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-40 group-hover:opacity-80 transition-opacity">
-                                <div className="border-r border-b border-white/30" />
-                                <div className="border-r border-b border-white/30" />
-                                <div className="border-b border-white/30" />
-                                <div className="border-r border-b border-white/30" />
-                                <div className="border-r border-b border-white/30" />
-                                <div className="border-b border-white/30" />
-                                <div className="border-r border-white/30" />
-                                <div className="border-r border-white/30" />
-                                <div />
-                            </div>
+    // Calculate scaling to map preview container to output canvas
+    const baseScale = CROP_SIZE / maskSize;
+    const posX = position.x * baseScale;
+    const posY = position.y * baseScale;
 
-                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                <Move size={10} /> Drag to reposition
-                            </div>
-                        </div>
+    // Determine intrinsic aspect scaling
+    const isRotated90 = rotation === 90 || rotation === 270;
+    const imgW = isRotated90 ? img.height : img.width;
+    const imgH = isRotated90 ? img.width : img.height;
 
-                        {/* Hidden Canvas element used for crop rendering */}
-                        <canvas ref={canvasRef} className="hidden" />
+    const fitScale = Math.max(CROP_SIZE / imgW, CROP_SIZE / imgH);
+    const drawW = img.width * fitScale;
+    const drawH = img.height * fitScale;
 
-                        {/* Zoom Control Slider */}
-                        <div className="w-full max-w-xs px-2 flex items-center gap-3 mt-1">
-                            <ZoomOut size={16} className="text-slate-400 shrink-0" />
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="3" 
-                                step="0.05"
-                                value={zoom} 
-                                onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600"
-                            />
-                            <ZoomIn size={16} className="text-red-600 shrink-0" />
-                        </div>
-                    </div>
+    // Apply drag offset mapped according to rotation
+    let rotAdjustedX = posX;
+    let rotAdjustedY = posY;
 
-                    {/* 3x3 Position Selection Table */}
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                                <Grid size={14} className="text-red-600" /> Focus Position Table
-                            </label>
-                            <button 
-                                onClick={handleReset}
-                                className="text-[11px] font-bold text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors"
-                            >
-                                <RotateCcw size={12} /> Reset
-                            </button>
-                        </div>
+    if (rotation === 90) {
+      rotAdjustedX = posY;
+      rotAdjustedY = -posX;
+    } else if (rotation === 180) {
+      rotAdjustedX = -posX;
+      rotAdjustedY = -posY;
+    } else if (rotation === 270) {
+      rotAdjustedX = -posY;
+      rotAdjustedY = posX;
+    }
 
-                        {/* 3x3 Selection Grid Table */}
-                        <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
-                            {ALIGNMENT_GRID.map((pos) => {
-                                const isSelected = selectedPosition === pos.id;
-                                return (
-                                    <button
-                                        key={pos.id}
-                                        onClick={() => {
-                                            setSelectedPosition(pos.id);
-                                            setDragOffset({ x: 0, y: 0 });
-                                        }}
-                                        className={`py-3 px-2 rounded-xl text-[11px] font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
-                                            isSelected 
-                                                ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white border-transparent shadow-md shadow-red-500/20 scale-[1.03]' 
-                                                : 'bg-white text-slate-700 hover:bg-red-50 hover:border-red-200 border-slate-200'
-                                        }`}
-                                    >
-                                        <span>{pos.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-                    <Button 
-                        variant="secondary" 
-                        onClick={onClose}
-                        className="rounded-xl text-xs px-4"
-                    >
-                        Cancel
-                    </Button>
-                    <Button 
-                        onClick={handleSave}
-                        className="rounded-xl text-xs px-6 bg-gradient-to-r from-red-600 via-red-500 to-amber-500 text-white font-bold shadow-md hover:scale-105 transition-all"
-                    >
-                        <Check size={14} className="mr-1.5 inline" /> Apply Profile Image
-                    </Button>
-                </div>
-            </motion.div>
-        </div>
+    ctx.drawImage(
+      img,
+      -drawW / 2 + rotAdjustedX / zoom,
+      -drawH / 2 + rotAdjustedY / zoom,
+      drawW,
+      drawH
     );
+
+    ctx.restore();
+
+    const croppedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+    onSave(croppedBase64);
+    onClose();
+  };
+
+  if (!isOpen || !imageSrc) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-xl text-white select-none overflow-hidden">
+        
+        {/* TOP BAR - WhatsApp style */}
+        <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-slate-900/80 border-b border-slate-800/80 z-20">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+              title="Cancel"
+            >
+              <X size={22} />
+            </button>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
+                Drag to adjust photo
+              </h2>
+              <p className="text-xs text-slate-400">
+                Pinch or scroll to zoom · Tap rotate to turn
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRotate}
+              className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+              title="Rotate 90°"
+            >
+              <RotateCw size={18} />
+              <span className="hidden sm:inline">Rotate</span>
+            </button>
+            <button
+              onClick={handleReset}
+              className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+              title="Reset"
+            >
+              <RotateCcw size={18} />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          </div>
+        </header>
+
+        {/* MAIN CROP CONTAINER */}
+        <div
+          ref={containerRef}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel}
+          className="relative flex-1 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing touch-none"
+        >
+          {/* Centered Image with Transforms */}
+          {imgLoaded && (
+            <div
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${zoom})`,
+                transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+              }}
+              className="absolute pointer-events-none flex items-center justify-center"
+            >
+              <img
+                src={imageSrc}
+                alt="Crop viewport"
+                className="max-w-none max-h-none object-contain select-none"
+                style={{
+                  width: '280px',
+                  height: '280px',
+                  objectFit: 'contain'
+                }}
+              />
+            </div>
+          )}
+
+          {/* Dark Translucent Mask overlay with WhatsApp circular cutout */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div
+              className="relative w-[280px] h-[280px] rounded-full border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex items-center justify-center"
+            >
+              {/* WhatsApp Grid lines when interacting */}
+              <div className={`absolute inset-0 rounded-full grid grid-cols-3 grid-rows-3 transition-opacity duration-200 pointer-events-none ${isDragging ? 'opacity-40' : 'opacity-15'}`}>
+                <div className="border-r border-b border-white" />
+                <div className="border-r border-b border-white" />
+                <div className="border-b border-white" />
+                <div className="border-r border-b border-white" />
+                <div className="border-r border-b border-white" />
+                <div className="border-b border-white" />
+                <div className="border-r border-white" />
+                <div className="border-r border-white" />
+                <div />
+              </div>
+
+              {/* Center Move Icon Indicator */}
+              <div className={`p-2.5 rounded-full bg-black/50 text-white backdrop-blur-xs transition-opacity duration-300 ${isDragging ? 'opacity-90 scale-110' : 'opacity-40 hover:opacity-80'}`}>
+                <Move size={20} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM CONTROLS BAR */}
+        <footer className="px-4 sm:px-8 py-5 bg-slate-900/90 border-t border-slate-800/80 flex flex-col gap-4 z-20">
+          
+          {/* Zoom Slider */}
+          <div className="max-w-md mx-auto w-full flex items-center gap-3 px-2">
+            <button
+              onClick={() => setZoom(prev => Math.max(1, parseFloat((prev - 0.1).toFixed(2))))}
+              className="text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              <ZoomOut size={18} />
+            </button>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.05"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+            <button
+              onClick={() => setZoom(prev => Math.min(3, parseFloat((prev + 0.1).toFixed(2))))}
+              className="text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              <ZoomIn size={18} className="text-emerald-400" />
+            </button>
+            <span className="text-xs font-bold text-slate-400 min-w-[36px] text-right font-mono">
+              {Math.round(zoom * 100)}%
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between max-w-md mx-auto w-full gap-4 pt-1">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCropSave}
+              className="flex-1 py-3 px-5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950 transition cursor-pointer"
+            >
+              <Check size={18} />
+              Done
+            </button>
+          </div>
+        </footer>
+
+      </div>
+    </AnimatePresence>
+  );
 }
+
+
