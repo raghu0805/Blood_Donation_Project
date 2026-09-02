@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { calculateDistance, calculateDonationEligibility, calculateDonorPriority } from '../lib/utils';
 import { db } from '../lib/firebase';
