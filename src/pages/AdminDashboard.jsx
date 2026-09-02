@@ -5,6 +5,7 @@ import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import { toast } from "react-hot-toast";
+import { calculateDonationEligibility, ALL_BLOOD_GROUPS } from "../lib/utils";
 import {
   Search, LogOut, RefreshCw, Users, Droplets, Heart, Activity,
   ChevronDown, X, MessageCircle, AlertTriangle, CheckCircle2, MapPin,
@@ -19,22 +20,39 @@ const fadeUp = {
   visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.4, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] } }),
 };
 
-const STANDARD_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const ALL_BLOOD_GROUPS_LIST = [...ALL_BLOOD_GROUPS];
 
 export const normalizeBloodGroup = (bg) => {
   if (!bg || typeof bg !== "string") return "UNSPECIFIED";
-  const s = bg.trim().toUpperCase().replace(/\s+/g, "");
-  if (!s || s === "PENDING" || s === "NOTLINKED" || s === "N/A" || s === "UNKNOWN" || s === "?") return "UNSPECIFIED";
+  const s = bg.trim();
+  if (!s || s.toUpperCase() === "PENDING" || s.toUpperCase() === "NOTLINKED" || s.toUpperCase() === "N/A" || s.toUpperCase() === "UNKNOWN" || s === "?") return "UNSPECIFIED";
 
-  if (s.includes("A1B+") || s === "AB+" || s.includes("ABPOS") || s.includes("AB+VE")) return "AB+";
-  if (s.includes("A1B-") || s === "AB-" || s.includes("ABNEG") || s.includes("AB-VE")) return "AB-";
-  if (s.includes("A1+") || s === "A+" || s.includes("APOS") || s.includes("A+VE")) return "A+";
-  if (s.includes("A1-") || s === "A-" || s.includes("ANEG") || s.includes("A-VE")) return "A-";
-  if (s === "B+" || s.includes("BPOS") || s.includes("B+VE")) return "B+";
-  if (s === "B-" || s.includes("BNEG") || s.includes("B-VE")) return "B-";
-  if (s === "O+" || s.includes("OPOS") || s.includes("O+VE") || s.includes("OPOSITIVE")) return "O+";
-  if (s === "O-" || s.includes("ONEG") || s.includes("O-VE") || s.includes("ONEGATIVE")) return "O-";
-  if (s.includes("OH") || s.includes("BOMBAY")) return "BOMBAY";
+  const upper = s.toUpperCase().replace(/\s+/g, "");
+
+  if (upper.includes("BOMBAY")) return "Bombay Blood Group";
+  if (upper.includes("RHNULL") || upper.includes("RH-NULL")) return "Rh-null";
+  if (upper.includes("INRA")) return "INRA";
+
+  const directMatch = ALL_BLOOD_GROUPS.find(g => g.toUpperCase().replace(/\s+/g, "") === upper);
+  if (directMatch) return directMatch;
+
+  if (upper.includes("A1B+") || upper.includes("A1B+VE")) return "A1B+";
+  if (upper.includes("A1B-") || upper.includes("A1B-VE")) return "A1B-";
+  if (upper.includes("A2B+") || upper.includes("A2B+VE")) return "A2B+";
+  if (upper.includes("A2B-") || upper.includes("A2B-VE")) return "A2B-";
+  if (upper.includes("A1+") || upper.includes("A1+VE")) return "A1+";
+  if (upper.includes("A1-") || upper.includes("A1-VE")) return "A1-";
+  if (upper.includes("A2+") || upper.includes("A2+VE")) return "A2+";
+  if (upper.includes("A2-") || upper.includes("A2-VE")) return "A2-";
+
+  if (upper === "AB+" || upper.includes("ABPOS") || upper.includes("AB+VE")) return "AB+";
+  if (upper === "AB-" || upper.includes("ABNEG") || upper.includes("AB-VE")) return "AB-";
+  if (upper === "A+" || upper.includes("APOS") || upper.includes("A+VE")) return "A+";
+  if (upper === "A-" || upper.includes("ANEG") || upper.includes("A-VE")) return "A-";
+  if (upper === "B+" || upper.includes("BPOS") || upper.includes("B+VE")) return "B+";
+  if (upper === "B-" || upper.includes("BNEG") || upper.includes("B-VE")) return "B-";
+  if (upper === "O+" || upper.includes("OPOS") || upper.includes("O+VE") || upper.includes("OPOSITIVE")) return "O+";
+  if (upper === "O-" || upper.includes("ONEG") || upper.includes("O-VE") || upper.includes("ONEGATIVE")) return "O-";
 
   return s;
 };
@@ -68,7 +86,7 @@ const formatTimestamp = (ts) => {
   }
 };
 
-function UserDetailsModal({ user, onClose, onReport }) {
+function UserDetailsModal({ user, onClose }) {
   if (!user) return null;
   const userName = user.displayName || user.name || "User";
   const online = isUserOnline(user);
@@ -158,10 +176,6 @@ function UserDetailsModal({ user, onClose, onReport }) {
                 <MessageCircle size={16} /> WhatsApp
               </a>
             ) : null}
-            <button onClick={() => onReport(user)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-bold text-red-700 hover:bg-red-100 transition cursor-pointer">
-              <AlertTriangle size={16} /> Report
-            </button>
             <button onClick={onClose}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
               <X size={16} /> Close
@@ -173,43 +187,7 @@ function UserDetailsModal({ user, onClose, onReport }) {
   );
 }
 
-function ReportModal({ user, reason, setReason, onClose, onSubmit }) {
-  if (!user) return null;
-  const userName = user.displayName || user.name || "User";
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between bg-gradient-to-r from-red-600 to-amber-500 px-6 py-4 text-white rounded-t-3xl">
-          <h2 className="font-black">Report Incorrect Details</h2>
-          <button onClick={onClose} className="rounded-xl p-1.5 hover:bg-white/20 transition cursor-pointer"><X size={18} /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3">
-            <p className="text-xs font-bold text-red-500 uppercase tracking-wider">Reporting</p>
-            <p className="font-black text-slate-900 mt-0.5">{userName}</p>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Reason / Details</label>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4}
-              placeholder="Describe the incorrect information..."
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 outline-none focus:border-red-300 focus:bg-white resize-none" />
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose}
-              className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
-              Cancel
-            </button>
-            <button onClick={onSubmit}
-              className="flex-1 rounded-2xl bg-gradient-to-r from-red-600 to-amber-500 py-3 text-sm font-bold text-white hover:brightness-105 transition cursor-pointer">
-              Submit Report
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
+
 
 function TransactionModal({ txn, onClose }) {
   if (!txn) return null;
@@ -285,8 +263,6 @@ export default function AdminDashboard() {
 
   // Modals
   const [userModal, setUserModal] = useState(null);
-  const [reportModal, setReportModal] = useState(null);
-  const [reportReason, setReportReason] = useState("");
   const [txnModal, setTxnModal] = useState(null);
 
   useEffect(() => {
@@ -361,13 +337,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSubmitReport = () => {
-    if (!reportModal) return;
-    const name = reportModal.displayName || reportModal.name || "user";
-    toast.success(`Report submitted for ${name}. Admin team flagged details.`);
-    setReportModal(null);
-    setReportReason("");
-  };
+
 
   // Metrics summary
   const metricsData = useMemo(() => {
@@ -378,7 +348,7 @@ export default function AdminDashboard() {
     const totalCompletedDonations = donations.length;
 
     const groupCounts = {};
-    STANDARD_BLOOD_GROUPS.forEach(bg => { groupCounts[bg] = 0; });
+    ALL_BLOOD_GROUPS_LIST.forEach(bg => { groupCounts[bg] = 0; });
     groupCounts["UNSPECIFIED"] = 0;
 
     users.forEach(u => {
@@ -390,7 +360,7 @@ export default function AdminDashboard() {
       }
     });
 
-    const displayedGroups = [...STANDARD_BLOOD_GROUPS];
+    const displayedGroups = [...ALL_BLOOD_GROUPS_LIST];
     if (groupCounts["UNSPECIFIED"] > 0) {
       displayedGroups.push("UNSPECIFIED");
     }
@@ -654,7 +624,7 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3 font-bold">Name</th>
                       <th className="px-4 py-3 font-bold">Status</th>
                       <th className="px-4 py-3 font-bold">Mobile No.</th>
-                      <th className="px-4 py-3 font-bold text-center">Report</th>
+                      <th className="px-4 py-3 font-bold text-center">Last Donated & Eligibility</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -663,6 +633,10 @@ export default function AdminDashboard() {
                       const mobile = u.whatsappNumber || u.phone || u.mobile || "N/A";
                       const available = u.isAvailable || isUserOnline(u);
                       const bg = normalizeBloodGroup(u.bloodGroup);
+
+                      const lastDateStr = formatTimestamp(u.lastDonated);
+                      const hasDonated = u.lastDonated && lastDateStr !== "N/A";
+                      const eligibility = calculateDonationEligibility(u.lastDonated, u.gender);
 
                       return (
                         <tr key={u.id} className="hover:bg-red-50/40 transition">
@@ -678,10 +652,23 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-4 py-3 text-slate-700 font-medium">{mobile}</td>
                           <td className="px-4 py-3 text-center">
-                            <button onClick={() => setReportModal(u)}
-                              className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition cursor-pointer">
-                              <AlertTriangle size={12} /> Report
-                            </button>
+                            {hasDonated ? (
+                              <div>
+                                <span className="font-bold text-slate-800 text-xs">{lastDateStr}</span>
+                                {eligibility.eligible ? (
+                                  <p className="text-[11px] font-bold text-emerald-600">Eligible Now</p>
+                                ) : (
+                                  <p className="text-[11px] font-bold text-amber-600">
+                                    Eligible in {eligibility.daysRemaining} days
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="font-medium text-slate-400 text-xs">Not Donated Yet</span>
+                                <p className="text-[11px] font-bold text-emerald-600">Ready to donate</p>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -821,8 +808,7 @@ export default function AdminDashboard() {
 
       {/* MODALS */}
       <AnimatePresence>
-        {userModal && <UserDetailsModal user={userModal} onClose={() => setUserModal(null)} onReport={u => { setUserModal(null); setReportModal(u); }} />}
-        {reportModal && <ReportModal user={reportModal} reason={reportReason} setReason={setReportReason} onClose={() => { setReportModal(null); setReportReason(""); }} onSubmit={handleSubmitReport} />}
+        {userModal && <UserDetailsModal user={userModal} onClose={() => setUserModal(null)} />}
         {txnModal && <TransactionModal txn={txnModal} onClose={() => setTxnModal(null)} />}
       </AnimatePresence>
     </div>
