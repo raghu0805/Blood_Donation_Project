@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Droplets, Heart, Bell, Menu, X, LogOut, Info, MapPin, Users, Clock, CheckCircle, AlertTriangle, MessageCircle } from "lucide-react";
-import logo from '../assets/app logo.png';
+import logo from '../assets/app logo copy.png';
 import pecLogo from '../assets/pec logo.png';
 import yrcLogo from '../assets/yrc logo.png';
 import { useAuth } from '../contexts/AuthContext';

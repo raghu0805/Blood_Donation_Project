@@ -5,7 +5,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { Card, CardContent, CardHeader } from '../components/Card';
-import { HeartPulse, Mail, Lock, User, Calendar, Droplets, Loader2 } from 'lucide-react';
+import { HeartPulse, Mail, Lock, User, Calendar, Droplets, Loader2, Eye, EyeOff } from 'lucide-react';
 import { ALL_BLOOD_GROUPS } from '../lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -18,6 +18,7 @@ export default function AuthPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -139,17 +140,47 @@ export default function AuthPage() {
                 }
 
                 const role = formData.bloodGroup ? 'donor' : 'patient';
-                await signupWithEmail(email, password, {
+                const newUserData = {
                     name: formData.name,
                     bloodGroup: formData.bloodGroup,
                     lastDonated: formData.lastDonated || null,
                     role: role,
                     rollNo: rollNo || null
-                });
+                };
 
-                toast.success("Account created successfully!");
-                // Navigate to profile flow
-                navigate('/profile');
+                try {
+                    await signupWithEmail(email, password, newUserData);
+                    toast.success("Account created successfully!");
+                    navigate('/profile');
+                } catch (signupErr) {
+                    if (signupErr.code === 'auth/email-already-in-use') {
+                        // Intelligent Fallback: Attempt automatic login with provided password
+                        try {
+                            const cred = await loginWithEmail(email, password);
+                            const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+                            toast.success("Account found! Signed in successfully.");
+                            if (userDoc.exists()) {
+                                const userData = userDoc.data();
+                                const r = userData.role;
+                                if (!r) navigate('/role-selection');
+                                else if (isProfileComplete(userData)) {
+                                    if (r === 'donor') navigate('/donor-dashboard');
+                                    else if (r === 'patient') navigate('/patient-dashboard');
+                                    else if (r === 'admin') navigate('/admin-dashboard');
+                                    else navigate('/');
+                                } else {
+                                    navigate('/profile');
+                                }
+                            } else {
+                                navigate('/profile');
+                            }
+                            return;
+                        } catch (loginErr) {
+                            throw new Error("This email is already registered. Please check your password and Log In.");
+                        }
+                    }
+                    throw signupErr;
+                }
             }
         } catch (error) {
             console.error("Auth Error:", error);
@@ -157,7 +188,7 @@ export default function AuthPage() {
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
                 message = "Invalid email or password. Please check your credentials and try again.";
             } else if (error.code === 'auth/email-already-in-use') {
-                message = "This email is already registered. Please Log In instead.";
+                message = "This email is already registered. Logging you in...";
             } else if (error.code === 'auth/weak-password') {
                 message = "Password should be at least 6 characters long.";
             }
@@ -300,14 +331,22 @@ export default function AuthPage() {
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Lock className="h-4 w-4 text-gray-400" />
                                 </div>
-                                        <input
-                                            type="password"
-                                            required
-                                            className="pl-10 block w-full rounded-xl bg-white/80 border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all sm:text-sm p-3 text-gray-900 placeholder-slate-400"
-                                            placeholder="••••••••"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        />
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    required
+                                    className="pl-10 pr-10 block w-full rounded-xl bg-white/80 border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all sm:text-sm p-3 text-gray-900 placeholder-slate-400"
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
                             </div>
                         </div>
 
