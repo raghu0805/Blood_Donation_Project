@@ -87,18 +87,7 @@ function RequestForm({ onClose, onSubmit, submitting }) {
               ))}
             </div>
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Urgency</label>
-            <div className="flex gap-2">
-              {["Emergency", "Urgent", "Moderate"].map((u) => (
-                <button key={u} onClick={() => setForm({ ...form, urgency: u })}
-                  className="flex-1 rounded-xl py-2 text-xs font-bold transition-all"
-                  style={form.urgency === u ? { background: "linear-gradient(135deg, #dc2626, #ef4444)", color: "#fff" } : { background: "#f8fafc", border: "1px solid #e2e8f0", color: "#374151" }}>
-                  {u}
-                </button>
-              ))}
-            </div>
-          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Units Required</label>
             <div className="flex items-center gap-3">

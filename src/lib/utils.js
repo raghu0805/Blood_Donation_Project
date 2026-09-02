@@ -11,6 +11,30 @@ export const ALL_BLOOD_GROUPS = [
     "Bombay Blood Group", "INRA", "Rh-null"
 ];
 
+export const BLOOD_COMPATIBILITY_INFO = {
+    "A+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["A+", "AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+"] },
+    "A-":  { label: "Rare Type", category: "Standard", canGiveTo: ["A-", "A+", "AB-", "AB+"], canReceiveFrom: ["O-", "A-"] },
+    "B+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["B+", "AB+"], canReceiveFrom: ["O-", "O+", "B-", "B+"] },
+    "B-":  { label: "Rare Type", category: "Standard", canGiveTo: ["B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-", "B-"] },
+    "O+":  { label: "Most Common Type", category: "Standard", canGiveTo: ["O+", "A+", "B+", "AB+"], canReceiveFrom: ["O-", "O+"] },
+    "O-":  { label: "Universal Donor", category: "Standard", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
+    "AB+": { label: "Universal Recipient", category: "Standard", canGiveTo: ["AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
+    "AB-": { label: "Rare Type", category: "Standard", canGiveTo: ["AB-", "AB+"], canReceiveFrom: ["O-", "A-", "B-", "AB-"] },
+
+    "A1+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A+", "A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "O+", "O-"] },
+    "A1-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A+", "A-", "A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "O-"] },
+    "A2+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A2+", "A+", "A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "O+", "O-"] },
+    "A2-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A2+", "A2-", "A+", "A-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "O-"] },
+    "A1B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "B+", "B-", "O+", "O-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"] },
+    "A1B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "B-", "O-", "A1B-", "A2B-", "AB-"] },
+    "A2B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "B+", "B-", "O+", "O-", "A2B+", "A2B-"] },
+    "A2B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "B-", "O-", "A2B-"] },
+
+    "Bombay Blood Group": { label: "Extremely Rare (hh Antigen)", category: "Rare Phenotypes", canGiveTo: ["Bombay", "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["Bombay Blood Group"] },
+    "INRA": { label: "Ultra-Rare Indian Phenotype", category: "Rare Phenotypes", canGiveTo: ["INRA", "Compatible Rare Donors"], canReceiveFrom: ["INRA"] },
+    "Rh-null": { label: "Golden Blood (Universal Rh)", category: "Rare Phenotypes", canGiveTo: ["Rh-null", "All Rh Negative / Positive Types"], canReceiveFrom: ["Rh-null"] }
+};
+
 export function calculateDonationEligibility(lastDonated, gender) {
     if (!lastDonated) return { eligible: true, message: null, percentage: 100, daysRemaining: 0 };
 

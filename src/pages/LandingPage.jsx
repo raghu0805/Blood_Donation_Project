@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, animate, AnimatePresence } from "framer-motion";
 import { useNavigate, Link, Navigate } from "react-router-dom";
@@ -28,6 +29,23 @@ import slide8 from "../assets/WhatsApp Image 2026-09-01 at 8.11.40 AM (1).jpeg";
 import slide9 from "../assets/WhatsApp Image 2026-09-01 at 8.11.40 AM (2).jpeg";
 import slide10 from "../assets/WhatsApp Image 2026-09-01 at 8.11.41 AM.jpeg";
 import slide11 from "../assets/WhatsApp Image 2026-09-01 at 8.13.41 AM.jpeg";
+=======
+import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { Button } from '../components/Button';
+import { HeartPulse, ShieldCheck, MapPin, Activity, Clock, AlertCircle, XCircle, Phone, CheckCircle, Megaphone, Database, Plus, Droplets, Zap, Bell, Heart, ChevronRight } from 'lucide-react';
+import DemoModal from '../components/DemoModal';
+import LandingNavbar from '../components/LandingNavbar';
+import { motion, useInView, animate } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { calculateDonationEligibility, ALL_BLOOD_GROUPS, BLOOD_COMPATIBILITY_INFO } from '../lib/utils';
+import CountdownTimer from '../components/CountdownTimer';
+import { useMCP } from '../contexts/MCPContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, updateDoc, query, where, getDocs, onSnapshot, doc, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
+import { Card } from '../components/Card';
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -308,9 +326,14 @@ function FeatureCard({ icon: Icon, iconColor, title, desc, delay }) {
 
 function Features() {
   const cards = [
+<<<<<<< HEAD
     { icon: Zap, iconColor: "#d4a017", title: "Smart Matching", desc: "We match blood types, location, and urgency in milliseconds for the fastest possible connection." },
     { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Full transparency from request to delivery." },
     { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is verified and health-screened. You can trust who shows up." },
+=======
+    { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Watch your donor or recipient move on a live map. Full transparency from request to delivery." },
+    { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is ID-verified and health-screened. You can trust who shows up." },
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
     { icon: Bell, iconColor: "#dc2626", title: "Emergency Alerts", desc: "Instant push alerts to nearby donors the moment a critical request is posted." },
   ];
   return (
@@ -320,7 +343,7 @@ function Features() {
           <h2 className="text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Why Choose LifeLink?</h2>
           <p className="mt-4 text-slate-500">Engineered for emergencies. Built for humanity.</p>
         </motion.div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c, i) => <FeatureCard key={c.title} {...c} delay={i} />)}
         </div>
       </motion.div>
@@ -328,6 +351,7 @@ function Features() {
   );
 }
 
+<<<<<<< HEAD
 // All 19 Blood Groups Definition
 const bloodInfo = {
   "O-": { label: "Universal Donor", category: "Standard", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
@@ -352,6 +376,9 @@ const bloodInfo = {
   "INRA": { label: "Ultra-Rare Indian Phenotype", category: "Rare Phenotypes", canGiveTo: ["INRA", "Compatible Rare Donors"], canReceiveFrom: ["INRA"] },
   "Rh-null": { label: "Golden Blood (Universal Rh)", category: "Rare Phenotypes", canGiveTo: ["Rh-null", "All Rh Negative / Positive Types"], canReceiveFrom: ["Rh-null"] }
 };
+=======
+const bloodInfo = BLOOD_COMPATIBILITY_INFO;
+>>>>>>> e927ffc166645637b3332da33a768673b39642ee
 
 function BloodFinder() {
   const [selected, setSelected] = useState("O-");

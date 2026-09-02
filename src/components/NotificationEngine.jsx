@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Bell, CheckCircle, AlertTriangle, Users, ArrowRight, MessageCircle, X } from 'lucide-react';
 import useNotifications from '../hooks/useNotifications';
 import { useAuth } from '../contexts/AuthContext';
+import { listenToForegroundMessages } from '../lib/fcm';
 
 /**
  * NotificationEngine — Real-Time In-App Message Engine
@@ -14,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
  *   - Instant event detection for requests, acceptances, withdrawals, and messages
  *   - Swipe-to-dismiss gesture (drag left or right to skip)
  *   - 5-Second Auto-Dismiss timer with smooth slide-out
+ *   - FCM Push Message Integration
  */
 export default function NotificationEngine() {
     const navigate = useNavigate();
@@ -21,6 +23,38 @@ export default function NotificationEngine() {
     const { activeNotifications, seenToastIds, markToastSeen } = useNotifications();
     const isInitialMount = useRef(true);
     const bootTimeRef = useRef(Date.now() / 1000);
+
+    // FCM Push Notification Listener
+    useEffect(() => {
+        if (!currentUser) return;
+        let unsubscribeFCM = () => {};
+
+        listenToForegroundMessages((payload) => {
+            const title = payload.notification?.title || payload.data?.title || "Push Alert Received";
+            const body = payload.notification?.body || payload.data?.body || "New blood alert received.";
+
+            toast.custom((t) => (
+                <div 
+                    onClick={() => { toast.dismiss(t.id); if (payload.data?.actionPath) navigate(payload.data.actionPath); }}
+                    className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl p-4 border border-red-200 border-l-4 border-l-red-600 flex items-start gap-3 cursor-pointer`}
+                >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                        <Bell size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-black uppercase text-red-600">{title}</h4>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">{body}</p>
+                    </div>
+                </div>
+            ), { duration: 6000, id: `fcm_${Date.now()}` });
+        }).then(unsub => {
+            if (typeof unsub === 'function') unsubscribeFCM = unsub;
+        });
+
+        return () => {
+            if (typeof unsubscribeFCM === 'function') unsubscribeFCM();
+        };
+    }, [currentUser, navigate]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -41,7 +75,6 @@ export default function NotificationEngine() {
                 }
             });
             isInitialMount.current = false;
-            return;
         }
 
         // Process newly arrived notifications in real-time

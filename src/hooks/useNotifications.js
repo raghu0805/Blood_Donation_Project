@@ -265,11 +265,10 @@ export default function useNotifications() {
         // Sort by most recent
         all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        // Active = non-stale, non-closed, role-appropriate
+        // Active = non-stale, non-closed
         const active = all.filter(n => {
             if (n.isStale) return false;
             if (n.isClosed && n.type !== 'completed') return false;
-            if (n.category === 'donor' && userRole === 'patient') return false;
             return true;
         });
 

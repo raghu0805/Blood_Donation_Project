@@ -5,8 +5,8 @@ import { calculateDonationEligibility, compressImage, ALL_BLOOD_GROUPS as bloodG
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { motion } from 'framer-motion';
-import { Camera, User, Phone, Droplets, Calendar, Weight, ChevronRight, ArrowLeft, Heart, Droplet, Edit2, Save, X, Activity, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, User, Phone, Droplets, Calendar, Weight, ChevronRight, ArrowLeft, Heart, Droplet, Edit2, Save, X, Activity, Loader2, AlertCircle, Bell, ShieldCheck } from 'lucide-react';
+import { requestFCMToken, getNotificationPermissionStatus } from '../lib/fcm';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import LandingNavbar from '../components/LandingNavbar';
@@ -75,6 +75,26 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false); // Used primarily by Admin now
     const [isSaving, setIsSaving] = useState(false);
     const [activeDetailsTab, setActiveDetailsTab] = useState(null); // 'saved' or 'gained'
+    const [pushStatus, setPushStatus] = useState(() => getNotificationPermissionStatus());
+    const [enablingPush, setEnablingPush] = useState(false);
+
+    const handleEnablePush = async () => {
+        setEnablingPush(true);
+        try {
+            const token = await requestFCMToken(currentUser?.uid);
+            const status = getNotificationPermissionStatus();
+            setPushStatus(status);
+            if (token) {
+                toast.success("Push Notifications Enabled Successfully!");
+            } else if (status === 'denied') {
+                toast.error("Notifications are blocked in browser settings. Please allow notifications in site settings.");
+            }
+        } catch (err) {
+            toast.error("Failed to enable push notifications: " + err.message);
+        } finally {
+            setEnablingPush(false);
+        }
+    };
 
     const [form, setForm] = useState({
         fullName: "",
@@ -492,6 +512,49 @@ export default function ProfilePage() {
                                 </div>
                             </div>
                         </div>
+                    </motion.div>
+
+                    {/* Push Notifications Settings */}
+                    <motion.div variants={fadeUp} custom={4.5} className="rounded-3xl p-6"
+                        style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1px solid rgba(37,99,235,0.15)", boxShadow: "0 4px 24px rgba(37,99,235,0.04)" }}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                                    <Bell size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Firebase Cloud Messaging</p>
+                                    <p className="text-sm font-bold text-gray-900">Web Push Notifications</p>
+                                </div>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                                pushStatus === 'granted' ? 'bg-green-100 text-green-700' : pushStatus === 'denied' ? 'bg-red-100 text-red-600' : pushStatus === 'unsupported' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                                {pushStatus === 'granted' ? '✓ Enabled' : pushStatus === 'denied' ? '🚫 Blocked' : pushStatus === 'unsupported' ? '⚠️ iOS Setup Required' : '⚡ Not Set'}
+                            </span>
+                        </div>
+                        <p className="mt-3 text-xs text-slate-500 leading-relaxed">
+                            Receive real-time instant alerts directly to your device whenever urgent blood requests match your blood group, even when LifeLink is closed or in the background.
+                        </p>
+                        {pushStatus === 'unsupported' ? (
+                            <div className="mt-3 text-xs text-amber-800 bg-amber-50 p-3 rounded-2xl border border-amber-200/80 space-y-1">
+                                <p className="font-bold flex items-center gap-1.5"><AlertCircle size={14} className="text-amber-600" /> iPhone / Mobile Browser Setup:</p>
+                                <p className="leading-relaxed">To get push notifications on iPhone (iOS 16.4+), tap <span className="font-bold">Share → Add to Home Screen</span>, then open LifeLink from your Home Screen. On Android, open in Chrome or Edge.</p>
+                            </div>
+                        ) : pushStatus !== 'granted' ? (
+                            <button
+                                type="button"
+                                disabled={enablingPush}
+                                onClick={handleEnablePush}
+                                className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md disabled:opacity-50"
+                            >
+                                {enablingPush ? <><Loader2 size={14} className="animate-spin" /> Requesting Permission...</> : <><Bell size={14} /> Enable Web Push Notifications</>}
+                            </button>
+                        ) : (
+                            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-green-600 bg-green-50 p-2.5 rounded-xl border border-green-100">
+                                <ShieldCheck size={16} /> Device registered for real-time FCM push notifications.
+                            </div>
+                        )}
                     </motion.div>
 
                     {/* Medical Info */}
