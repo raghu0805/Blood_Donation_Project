@@ -553,67 +553,7 @@ export default function PatientDashboard() {
               </motion.div>
             )}
 
-            <motion.div variants={fadeUp} custom={3} initial="hidden" animate="visible" className="rounded-3xl p-6"
-              style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", border: "1.5px solid rgba(148,163,184,0.18)", boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}>
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">AI Matching</p>
-                  <p className="mt-0.5 text-lg font-bold text-gray-900">Matched Donors</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button 
-                        disabled={isAnalyzing || availableDonors.length === 0}
-                        onClick={handleGeminiAnalysis} 
-                        className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors disabled:opacity-50">
-                        <Sparkles size={12} /> {isAnalyzing ? "Analyzing..." : "Auto-match"}
-                    </button>
-                    <span className="rounded-xl px-2.5 py-1 text-xs font-bold text-amber-600" style={{ background: "rgba(212,160,23,0.1)" }}>
-                    {availableDonors.length} Found
-                    </span>
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-3">
-                {availableDonors.map((donor, i) => (
-                  <motion.div key={donor.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl p-4"
-                    style={{ background: "rgba(248,250,252,0.8)", border: "1px solid rgba(148,163,184,0.15)" }}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold text-red-500"
-                        style={{ background: "linear-gradient(135deg, rgba(220,38,38,0.1), rgba(212,160,23,0.1))", border: "1px solid rgba(220,38,38,0.15)" }}>
-                        {donor.name?.charAt(0) || <User size={18} />}
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{donor.name || "Donor"}</p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 min-w-0">
-                          <span className="text-xs font-bold text-red-500 shrink-0">{donor.bloodGroup || "??"}</span>
-                          <span className="text-slate-300">·</span>
-                          <div className="flex items-center gap-1 min-w-0">
-                            <MapPin size={11} className="text-slate-400 shrink-0" />
-                            <span className="text-xs text-slate-400 truncate">{donor.distance || "Nearby"}</span>
-                          </div>
-                          <span className="text-slate-300 hidden sm:inline">·</span>
-                          <span className="text-xs text-slate-400 shrink-0">{donor.lastDonated ? new Date(donor.lastDonated).toLocaleDateString() : "Ready"}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <motion.button type="button"
-                      whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      onTap={() => handleRequestSpecificDonor(donor)}
-                      disabled={requestedDonors.includes(donor.id) || isProcessingDonor === donor.id}
-                      className="flex items-center justify-center shrink-0 w-full sm:w-auto gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all disabled:opacity-80"
-                      style={requestedDonors.includes(donor.id)
-                        ? { background: "rgba(34,197,94,0.15)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
-                        : { background: "linear-gradient(135deg, #dc2626, #ef4444)", boxShadow: "0 4px 12px rgba(220,38,38,0.25)" }}>
-                      {requestedDonors.includes(donor.id) ? <><CheckCircle size={12} /> Requested</> : isProcessingDonor === donor.id ? "..." : <><Bell size={12} /> Request</>}
-                    </motion.button>
-                  </motion.div>
-                ))}
-                {availableDonors.length === 0 && (
-                   <p className="text-xs text-gray-400 italic py-2">No active offline donors in your radius.</p>
-                )}
-              </div>
-            </motion.div>
           </div>
         </div>
       </div>

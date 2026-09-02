@@ -19,7 +19,7 @@ import appLogo from "../assets/app logo copy.png";
 
 import slide1 from "../assets/WhatsApp Image 2026-08-31 at 12.13.29 PM.jpeg";
 import slide2 from "../assets/WhatsApp Image 2026-08-31 at 12.13.29 PM (1).jpeg";
-import slide3 from "../assets/WhatsApp Image 2026-09-01 at 8.11.41 AM (1).jpeg";
+import slide3 from "../assets/WhatsApp Image 2026-09-02 at 1.34.55 PM.jpeg";
 import slide4 from "../assets/WhatsApp Image 2026-09-01 at 8.11.41 AM (2).jpeg";
 import slide5 from "../assets/WhatsApp Image 2026-09-01 at 8.11.39 AM.jpeg";
 import slide6 from "../assets/WhatsApp Image 2026-09-01 at 8.11.39 AM (1).jpeg";
@@ -92,19 +92,19 @@ function HeroSlider() {
   }, [slides.length]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[2.5rem] shadow-2xl" style={{ aspectRatio: "4/3", border: "1.5px solid rgba(220,38,38,0.12)" }}>
+    <div className="relative w-full h-[480px] sm:h-[550px] lg:h-[600px] overflow-hidden rounded-[2.5rem] shadow-2xl bg-slate-900/5" style={{ border: "1.5px solid rgba(220,38,38,0.12)" }}>
       <AnimatePresence mode="wait">
         <motion.div key={current}
           initial={{ opacity: 0, x: 60 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -60 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute inset-0">
+          className="absolute inset-0 flex items-center justify-center">
           {slides[current].src ? (
             slides[current].pad ? (
-              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-cover object-top" />
+              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-contain" />
             ) : (
-              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-cover" />
+              <img src={slides[current].src} alt={slides[current].alt} className="h-full w-full object-cover object-top" />
             )
           ) : (
             <div className="flex h-full w-full items-center justify-center" style={{ background: "linear-gradient(135deg, #fee2e2, #fef3c7)" }}>
