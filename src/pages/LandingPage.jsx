@@ -7,7 +7,7 @@ import LandingNavbar from '../components/LandingNavbar';
 import { motion, useInView, animate } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { calculateDonationEligibility, ALL_BLOOD_GROUPS } from '../lib/utils';
+import { calculateDonationEligibility, ALL_BLOOD_GROUPS, BLOOD_COMPATIBILITY_INFO } from '../lib/utils';
 import CountdownTimer from '../components/CountdownTimer';
 import { useMCP } from '../contexts/MCPContext';
 import { db } from '../lib/firebase';
@@ -189,7 +189,6 @@ function FeatureCard({ icon: Icon, iconColor, title, desc, delay }) {
 
 function Features() {
   const cards = [
-    { icon: Zap, iconColor: "#d4a017", title: "AI Smart Matching", desc: "Our algorithm matches blood types, location, and urgency in milliseconds for the fastest possible connection." },
     { icon: MapPin, iconColor: "#dc2626", title: "Real-Time Tracking", desc: "Watch your donor or recipient move on a live map. Full transparency from request to delivery." },
     { icon: ShieldCheck, iconColor: "#d4a017", title: "Verified Donors", desc: "Every donor is ID-verified and health-screened. You can trust who shows up." },
     { icon: Bell, iconColor: "#dc2626", title: "Emergency Alerts", desc: "Instant push alerts to nearby donors the moment a critical request is posted." },
@@ -201,7 +200,7 @@ function Features() {
           <h2 className="text-4xl font-bold text-gray-900 md:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>Why Choose LifeLink?</h2>
           <p className="mt-4 text-slate-500">Engineered for emergencies. Built for humanity.</p>
         </motion.div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c, i) => <FeatureCard key={c.title} {...c} delay={i} />)}
         </div>
       </motion.div>
@@ -209,29 +208,7 @@ function Features() {
   );
 }
 
-const bloodInfo = {
-  "O-":  { label: "Universal Donor", category: "Standard", canGiveTo: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-"] },
-  "O+":  { label: "Most Common Type", category: "Standard", canGiveTo: ["O+", "A+", "B+", "AB+"], canReceiveFrom: ["O-", "O+"] },
-  "A-":  { label: "Rare Type", category: "Standard", canGiveTo: ["A-", "A+", "AB-", "AB+"], canReceiveFrom: ["O-", "A-"] },
-  "A+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["A+", "AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+"] },
-  "B-":  { label: "Rare Type", category: "Standard", canGiveTo: ["B-", "B+", "AB-", "AB+"], canReceiveFrom: ["O-", "B-"] },
-  "B+":  { label: "High Demand Type", category: "Standard", canGiveTo: ["B+", "AB+"], canReceiveFrom: ["O-", "O+", "B-", "B+"] },
-  "AB-": { label: "Rare Type", category: "Standard", canGiveTo: ["AB-", "AB+"], canReceiveFrom: ["O-", "A-", "B-", "AB-"] },
-  "AB+": { label: "Universal Recipient", category: "Standard", canGiveTo: ["AB+"], canReceiveFrom: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
-
-  "A1+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A+", "A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "O+", "O-"] },
-  "A1-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A+", "A-", "A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "O-"] },
-  "A2+":  { label: "A Subgroup (A+ Compatible)", category: "Subgroups", canGiveTo: ["A1+", "A2+", "A+", "A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "O+", "O-"] },
-  "A2-":  { label: "A Subgroup (Rh Negative)", category: "Subgroups", canGiveTo: ["A1+", "A1-", "A2+", "A2-", "A+", "A-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "O-"] },
-  "A1B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "AB+"], canReceiveFrom: ["A1+", "A1-", "A2+", "A2-", "B+", "B-", "O+", "O-", "A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"] },
-  "A1B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "AB+", "AB-"], canReceiveFrom: ["A1-", "A2-", "B-", "O-", "A1B-", "A2B-", "AB-"] },
-  "A2B+": { label: "Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A2B+", "AB+"], canReceiveFrom: ["A2+", "A2-", "B+", "B-", "O+", "O-", "A2B+", "A2B-"] },
-  "A2B-": { label: "Very Rare AB Subgroup", category: "Subgroups", canGiveTo: ["A1B+", "A1B-", "A2B+", "A2B-", "AB+", "AB-"], canReceiveFrom: ["A2-", "B-", "O-", "A2B-"] },
-
-  "Bombay Blood Group": { label: "Extremely Rare (hh Antigen)", category: "Rare Phenotypes", canGiveTo: ["Bombay", "O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], canReceiveFrom: ["Bombay Blood Group"] },
-  "INRA": { label: "Ultra-Rare Indian Phenotype", category: "Rare Phenotypes", canGiveTo: ["INRA", "Compatible Rare Donors"], canReceiveFrom: ["INRA"] },
-  "Rh-null": { label: "Golden Blood (Universal Rh)", category: "Rare Phenotypes", canGiveTo: ["Rh-null", "All Rh Negative / Positive Types"], canReceiveFrom: ["Rh-null"] }
-};
+const bloodInfo = BLOOD_COMPATIBILITY_INFO;
 
 function BloodFinder() {
   const [selected, setSelected] = useState("O-");

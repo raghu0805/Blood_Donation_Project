@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Send, Bell, Heart, MapPin, CheckCircle2, Phone, ShieldCheck, 
     Play, Pause, ChevronLeft, ChevronRight, Zap, Users, CheckCheck, 
-    Clock, Sparkles, MessageSquare, Radio 
+    Clock, Sparkles, MessageSquare, Radio, Droplets 
 } from 'lucide-react';
 import { Button } from './Button';
+import logo from '../assets/app logo.png';
+import { ALL_BLOOD_GROUPS, BLOOD_COMPATIBILITY_INFO } from '../lib/utils';
 
 const SCENES_DATA = [
     { id: 0, label: "Broadcast", icon: Radio },
@@ -21,13 +23,16 @@ export default function DemoModal({ isOpen, onClose }) {
     const handleNext = useCallback(() => {
         setScene((prev) => {
             if (prev < SCENES_DATA.length - 1) {
+                if (prev + 1 === SCENES_DATA.length - 1) {
+                    setIsPlaying(false);
+                }
                 return prev + 1;
             } else {
-                onClose?.();
+                setIsPlaying(false);
                 return prev;
             }
         });
-    }, [onClose]);
+    }, []);
 
     const handlePrev = useCallback(() => {
         setScene((prev) => (prev > 0 ? prev - 1 : 0));
@@ -69,7 +74,8 @@ export default function DemoModal({ isOpen, onClose }) {
             >
                 {/* Header & Controls Bar */}
                 <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-3.5 border-b border-red-100/60 relative z-30 bg-white/80 backdrop-blur-md shadow-xs">
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <img src={logo} alt="LifeLink Logo" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-red-200/80 shadow-xs shrink-0" />
                         <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-50 border border-red-200/80">
                             <span className="relative flex h-2 w-2">
                                 <span className={`absolute inline-flex h-full w-full rounded-full bg-red-500 ${isPlaying ? 'animate-ping opacity-75' : ''}`} />
@@ -211,8 +217,11 @@ export default function DemoModal({ isOpen, onClose }) {
 }
 
 function SceneRequest() {
+    const [selectedBlood, setSelectedBlood] = useState("B+");
+    const info = BLOOD_COMPATIBILITY_INFO[selectedBlood] || BLOOD_COMPATIBILITY_INFO["A+"];
+
     return (
-        <div className="flex flex-col md:flex-row items-center justify-center gap-5 md:gap-10 max-w-4xl w-full py-1 sm:py-0">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-5 md:gap-8 max-w-4xl w-full py-1 sm:py-0">
             <div className="relative group shrink-0">
                 {/* Mock Phone Frame */}
                 <div className="w-[180px] h-[310px] sm:w-[220px] sm:h-[380px] bg-slate-900 rounded-[2.2rem] sm:rounded-[2.6rem] border-4 border-slate-800 shadow-2xl overflow-hidden relative p-1.5 ring-4 ring-red-500/10">
@@ -234,7 +243,10 @@ function SceneRequest() {
 
                         {/* App Header */}
                         <div className="h-8 bg-gradient-to-r from-red-600 to-red-500 p-2 px-3 flex items-center justify-between mt-1 text-white shadow-xs">
-                            <span className="text-[9px] font-black tracking-wide">LIFELINK SOS</span>
+                            <div className="flex items-center gap-1">
+                                <img src={logo} alt="LifeLink" className="w-3.5 h-3.5 rounded-full bg-white p-0.5" />
+                                <span className="text-[9px] font-black tracking-wide">LIFELINK SOS</span>
+                            </div>
                             <span className="text-[7px] bg-white/25 text-white px-1.5 py-0.5 rounded font-bold">LIVE</span>
                         </div>
 
@@ -251,9 +263,10 @@ function SceneRequest() {
                                         <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-[7px] text-white font-black tracking-widest animate-pulse">EMERGENCY</span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
-                                        <span className="text-xl sm:text-2xl font-black text-slate-900">A+</span>
+                                        <span className="text-base sm:text-lg font-black text-slate-900 truncate max-w-[120px]">{selectedBlood}</span>
                                         <span className="text-[9px] text-amber-600 font-bold">2 Units</span>
                                     </div>
+                                    <p className="text-[8px] text-slate-500 font-medium italic truncate">{info?.label}</p>
                                     <div className="flex items-center gap-1 text-[8px] sm:text-[9px] text-slate-600 border-t border-red-200/60 pt-1">
                                         <MapPin className="text-red-600 shrink-0 w-2.5 h-2.5" />
                                         <span className="truncate">City General Hospital</span>
@@ -263,7 +276,7 @@ function SceneRequest() {
                                 <div className="p-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between text-[8px] font-semibold text-slate-700 shadow-2xs">
                                     <span>Nearby Donors:</span>
                                     <span className="text-emerald-600 font-bold flex items-center gap-0.5">
-                                        <Users className="w-2.5 h-2.5" /> 48 Found
+                                        <Users className="w-2.5 h-2.5" /> {info?.canReceiveFrom?.length * 8 + 12 || 48} Found
                                     </span>
                                 </div>
 
@@ -284,24 +297,69 @@ function SceneRequest() {
                     <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                     STEP 1: REAL-TIME EMERGENCY ENGINE
                 </div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">
-                    Smart Demand <br/>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+                    Smart Demand & <br/>
                     <span style={{ background: "linear-gradient(135deg, #d4a017 0%, #dc2626 55%, #d4a017 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                        Broadcast Engine
+                        Blood Type Compatibility
                     </span>
                 </h2>
-                <p className="text-xs sm:text-base text-slate-600 font-medium leading-relaxed max-w-lg mx-auto md:mx-0">
-                    When an emergency request is raised, LifeLink captures blood group, location, and hospital urgency to trigger an instant broadcast.
-                </p>
 
-                <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-1">
-                    <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-[10px] sm:text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs">
-                        <MapPin className="w-3 h-3 text-red-600" /> Geo-Fenced Radius
-                    </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-[10px] sm:text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs">
-                        <Heart className="w-3 h-3 text-amber-500" /> Compatible Match
-                    </span>
+                {/* Interactive Blood Selector Pills Grid */}
+                <div className="space-y-1.5 pt-1 text-left">
+                    <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        BLOOD GROUP NEEDED
+                    </p>
+                    <div className="flex flex-wrap gap-1 sm:gap-1.5 max-h-[130px] overflow-y-auto p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/80">
+                        {ALL_BLOOD_GROUPS.map((g) => {
+                            const isSelected = selectedBlood === g;
+                            return (
+                                <button
+                                    key={g}
+                                    onClick={() => setSelectedBlood(g)}
+                                    className={`px-2.5 py-1 text-[10px] sm:text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                                        isSelected
+                                            ? "bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-md scale-105"
+                                            : "bg-white text-slate-700 hover:bg-red-50 border border-slate-200/80"
+                                    }`}
+                                >
+                                    {g}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
+
+                {/* Live Compatibility Card */}
+                {info && (
+                    <div className="p-2.5 sm:p-3 rounded-2xl bg-white/90 border border-red-100 shadow-xs text-left space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                                <Droplets className="w-3.5 h-3.5 text-red-600" />
+                                <span className="text-xs font-black text-slate-900">{selectedBlood}</span>
+                                <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">{info.category}</span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-500">— {info.label}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div className="bg-red-50/70 p-2 rounded-xl border border-red-100">
+                                <span className="font-bold text-red-700 block mb-0.5 uppercase text-[8px] tracking-wider">Can Donate To ({info.canGiveTo.length})</span>
+                                <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto">
+                                    {info.canGiveTo.map(g => (
+                                        <span key={g} className="bg-red-600 text-white font-bold px-1.5 py-0.5 rounded text-[9px]">{g}</span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                                <span className="font-bold text-amber-800 block mb-0.5 uppercase text-[8px] tracking-wider">Can Receive From ({info.canReceiveFrom.length})</span>
+                                <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto">
+                                    {info.canReceiveFrom.map(g => (
+                                        <span key={g} className="bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded text-[9px]">{g}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

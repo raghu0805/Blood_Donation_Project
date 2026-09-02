@@ -1,17 +1,16 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
     Bell, AlertTriangle, CheckCircle, Users, MapPin, MessageCircle,
-    Clock, ArrowLeft, Trash2, RotateCcw, Filter, BellOff, X
+    Clock, ArrowLeft, Trash2, RotateCcw, BellOff, X
 } from "lucide-react";
 import useNotifications from "../hooks/useNotifications";
 
 const fadeUp = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 15 },
     visible: (i = 0) => ({
         opacity: 1, y: 0,
-        transition: { duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] },
+        transition: { duration: 0.35, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] },
     }),
 };
 
@@ -24,83 +23,22 @@ const iconMap = {
     message: MessageCircle
 };
 
-// Filter tabs configuration
-const FILTER_TABS = [
-    { key: 'all', label: 'All' },
-    { key: 'new_request', label: 'Requests' },
-    { key: 'donor_accepted', label: 'Accepted' },
-    { key: 'donor_withdrawn', label: 'Withdrawn' },
-    { key: 'chat_message', label: 'Messages' },
-    { key: 'fulfilled', label: 'Fulfilled' },
-    { key: 'emergency', label: 'Emergency' },
-    { key: 'completed', label: 'Completed' },
-];
-
 export default function NotificationsPage() {
     const navigate = useNavigate();
     const {
-        allNotifications,
         visibleNotifs,
-        dismissedNotifs,
         readIds,
         dismissedIds,
         markAsRead,
         markAllRead,
         dismissNotif,
         clearAll,
-        restoreNotif,
-        restoreAll,
         unreadCount
     } = useNotifications();
-
-    const [filterType, setFilterType] = useState('all');
-
-    // Single common notifications list with filter support
-    const getDisplayNotifications = () => {
-        let list = visibleNotifs;
-        if (filterType !== 'all') {
-            list = list.filter(n => n.type === filterType);
-        }
-        return list;
-    };
-
-    const displayNotifs = getDisplayNotifications();
-
-    // Group notifications by time period
-    const groupByTime = (notifs) => {
-        const now = Date.now();
-        const groups = {
-            today: [],
-            yesterday: [],
-            thisWeek: [],
-            older: []
-        };
-
-        notifs.forEach(n => {
-            const ts = (n.timestamp || 0) * 1000;
-            const diff = now - ts;
-            const dayMs = 24 * 60 * 60 * 1000;
-
-            if (diff < dayMs) {
-                groups.today.push(n);
-            } else if (diff < 2 * dayMs) {
-                groups.yesterday.push(n);
-            } else if (diff < 7 * dayMs) {
-                groups.thisWeek.push(n);
-            } else {
-                groups.older.push(n);
-            }
-        });
-
-        return groups;
-    };
-
-    const groups = groupByTime(displayNotifs);
 
     const renderNotifCard = (notif, idx) => {
         const Icon = iconMap[notif.iconType] || AlertTriangle;
         const isRead = readIds.includes(notif.id);
-        const isDismissed = dismissedIds.includes(notif.id);
 
         return (
             <motion.div
@@ -110,37 +48,23 @@ export default function NotificationsPage() {
                 animate="visible"
                 custom={idx}
                 className={`flex items-start gap-4 px-5 py-4 rounded-2xl transition-all cursor-pointer group ${
-                    isDismissed
-                        ? 'opacity-60 bg-slate-50/50'
-                        : isRead
-                            ? 'bg-white hover:bg-slate-50/80'
-                            : 'bg-white hover:bg-red-50/30'
+                    isRead
+                        ? 'bg-white hover:bg-slate-50/80 border-slate-200/60'
+                        : 'bg-white hover:bg-red-50/30 border-red-200/80'
                 }`}
                 style={{
-                    border: isDismissed
-                        ? '1px solid rgba(148,163,184,0.1)'
-                        : isRead
-                            ? '1px solid rgba(148,163,184,0.12)'
-                            : '1px solid rgba(220,38,38,0.12)',
-                    borderLeft: isDismissed
-                        ? '1px solid rgba(148,163,184,0.1)'
-                        : isRead
-                            ? '1px solid rgba(148,163,184,0.12)'
-                            : '4px solid #dc2626',
-                    boxShadow: isDismissed
-                        ? 'none'
-                        : '0 1px 3px rgba(0,0,0,0.04)'
+                    border: isRead ? '1px solid rgba(148,163,184,0.15)' : '1px solid rgba(220,38,38,0.15)',
+                    borderLeft: isRead ? '1px solid rgba(148,163,184,0.15)' : '4px solid #dc2626',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                 }}
                 onClick={() => {
-                    if (!isDismissed) {
-                        markAsRead(notif.id);
-                        navigate(notif.actionPath);
-                    }
+                    markAsRead(notif.id);
+                    if (notif.actionPath) navigate(notif.actionPath);
                 }}
             >
                 {/* Icon */}
                 <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isDismissed ? 'opacity-40' : isRead ? 'opacity-60' : ''}`}
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isRead ? 'opacity-60' : ''}`}
                     style={{ background: notif.iconBg }}
                 >
                     <Icon size={18} style={{ color: notif.iconColor }} />
@@ -148,14 +72,10 @@ export default function NotificationsPage() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                    <p className={`text-sm leading-tight ${
-                        isDismissed ? 'font-normal text-slate-400 line-through'
-                            : isRead ? 'font-medium text-gray-600'
-                                : 'font-semibold text-gray-900'
-                    }`}>
+                    <p className={`text-sm leading-tight ${isRead ? 'font-medium text-gray-600' : 'font-semibold text-gray-900'}`}>
                         {notif.title}
                     </p>
-                    <p className={`text-xs mt-1 ${isDismissed ? 'text-slate-300' : 'text-slate-400'}`}>
+                    <p className="text-xs text-slate-400 mt-1">
                         {notif.subtitle}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
@@ -188,23 +108,13 @@ export default function NotificationsPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col items-center gap-1 shrink-0">
-                    {isDismissed ? (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); restoreNotif(notif.id); }}
-                            className="p-1.5 rounded-lg hover:bg-green-50 transition-colors"
-                            title="Restore"
-                        >
-                            <RotateCcw size={14} className="text-green-500" />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); dismissNotif(notif.id); }}
-                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all"
-                            title="Dismiss"
-                        >
-                            <X size={14} className="text-slate-400 hover:text-red-500" />
-                        </button>
-                    )}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); dismissNotif(notif.id); }}
+                        className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all"
+                        title="Dismiss"
+                    >
+                        <X size={14} className="text-slate-400 hover:text-red-500" />
+                    </button>
                 </div>
             </motion.div>
         );
@@ -236,12 +146,12 @@ export default function NotificationsPage() {
                             <div>
                                 <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
                                 <p className="text-xs text-slate-400 mt-0.5">
-                                    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'} · {allNotifications.length} total
+                                    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'} · {visibleNotifs.length} total
                                 </p>
                             </div>
                         </div>
 
-                        {/* Action buttons */}
+                        {/* Header Actions */}
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
                                 <button
@@ -251,69 +161,20 @@ export default function NotificationsPage() {
                                     Mark all read
                                 </button>
                             )}
+                            {visibleNotifs.length > 0 && (
+                                <button
+                                    onClick={clearAll}
+                                    className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-red-500 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
+                                >
+                                    <Trash2 size={12} /> Clear all
+                                </button>
+                            )}
                         </div>
                     </div>
                 </motion.div>
 
-                {/* Type Filter Chips */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 }}
-                    className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 no-scrollbar"
-                >
-                    <Filter size={12} className="text-slate-300 shrink-0" />
-                    {FILTER_TABS.map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setFilterType(tab.key)}
-                            className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
-                                filterType === tab.key
-                                    ? 'bg-red-600 text-white shadow-sm'
-                                    : 'bg-white text-slate-500 hover:text-red-600 border border-slate-100 hover:border-red-100'
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </motion.div>
-
-                {/* Bulk action for cleared tab */}
-                {activeTab === 'cleared' && dismissedNotifs.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-center justify-between mb-4 px-4 py-3 rounded-2xl bg-green-50/50 border border-green-100"
-                    >
-                        <span className="text-xs text-green-700 font-medium">
-                            {dismissedNotifs.length} cleared notification{dismissedNotifs.length > 1 ? 's' : ''}
-                        </span>
-                        <button
-                            onClick={restoreAll}
-                            className="flex items-center gap-1.5 text-[11px] font-bold text-green-600 hover:text-green-700 px-3 py-1.5 rounded-xl hover:bg-green-100 transition-colors"
-                        >
-                            <RotateCcw size={12} /> Restore all
-                        </button>
-                    </motion.div>
-                )}
-
-                {activeTab === 'active' && visibleNotifs.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-center justify-end mb-4"
-                    >
-                        <button
-                            onClick={clearAll}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-red-500 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
-                        >
-                            <Trash2 size={11} /> Clear all
-                        </button>
-                    </motion.div>
-                )}
-
-                {/* Notification List — Top to Bottom Flat List */}
-                {displayNotifs.length === 0 ? (
+                {/* Common Single Notifications List */}
+                {visibleNotifs.length === 0 ? (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -324,24 +185,16 @@ export default function NotificationsPage() {
                         </div>
                         <div className="text-center">
                             <p className="text-base font-semibold text-slate-400">
-                                {activeTab === 'cleared'
-                                    ? 'No cleared notifications'
-                                    : activeTab === 'all'
-                                        ? 'No notifications yet'
-                                        : 'You\'re all caught up!'}
+                                You're all caught up!
                             </p>
                             <p className="text-xs text-slate-300 mt-1">
-                                {activeTab === 'cleared'
-                                    ? 'Cleared notifications will appear here'
-                                    : activeTab === 'all'
-                                        ? 'Notifications from requests and donors will show here'
-                                        : 'New blood requests, donor responses, and messages will appear here'}
+                                New blood requests, donor responses, and messages will appear here
                             </p>
                         </div>
                     </motion.div>
                 ) : (
                     <div className="flex flex-col gap-2">
-                        {displayNotifs.map((n, i) => renderNotifCard(n, i))}
+                        {visibleNotifs.map((n, i) => renderNotifCard(n, i))}
                     </div>
                 )}
 
